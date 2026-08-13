@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   
-  <!-- 🚫 キャッシュ無効化（アプデを即反映させる設定） -->
+  <!-- 🚫 キャッシュ無効化 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
-  <!-- iPhone全画面アプリ（PWA）化のための設定 -->
+  <!-- iPhone全画面アプリ設定 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="こくにいゲーム">
@@ -48,8 +48,9 @@
 
     /* UI要素 */
     #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
-    #battery-ui { margin-top: 6px; font-weight: bold; color: #ffff00; font-size: 1rem; }
-    #stamina-ui { margin-top: 4px; font-weight: bold; color: #00ffff; font-size: 1rem; }
+    #battery-ui { margin-top: 4px; font-weight: bold; color: #ffff00; font-size: 0.95rem; }
+    #stamina-ui { margin-top: 2px; font-weight: bold; color: #00ffff; font-size: 0.95rem; }
+    #parts-ui { margin-top: 2px; font-weight: bold; color: #00ff66; font-size: 1.05rem; text-shadow: 0 0 8px #00ff66; }
 
     /* 操作ボタン */
     .game-btn {
@@ -63,7 +64,12 @@
     /* ゲームオーバー画面 */
     #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 150; text-align: center; }
     #game-over h1 { font-size: 2.2rem; margin-bottom: 10px; }
-    #retry-btn { font-size: 1.2rem; padding: 14px 28px; background: #fff; color: #000; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    
+    /* ゲームクリア画面 */
+    #game-clear { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 100, 180, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 150; text-align: center; }
+    #game-clear h1 { font-size: 2.5rem; color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 10px; }
+
+    .retry-btn { font-size: 1.2rem; padding: 14px 28px; background: #fff; color: #000; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-top: 15px; }
   </style>
 </head>
 <body>
@@ -75,7 +81,7 @@
     <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック」を解除して<br>横に持ってプレイしてください</p>
   </div>
 
-  <!-- スタート画面（初期表示） -->
+  <!-- スタート画面 -->
   <div id="start-screen">
     <h1>恐怖の森 - こくにい避難指示</h1>
     <p style="margin: 0 0 10px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。横画面でお楽しみください。</p>
@@ -85,6 +91,7 @@
   <!-- ゲームプレイ中UI -->
   <div id="ui">
     <h2 style="margin:0; font-size:1.1rem;">こくにいから逃げろ！</h2>
+    <div id="parts-ui">💻 PCパーツ: <span id="parts-val">0</span> / 4</div>
     <div id="battery-ui">⚡ バッテリー: <span id="battery-val">100</span>%</div>
     <div id="stamina-ui">🏃 スタミナ: <span id="stamina-val">100</span>%</div>
     <div id="warning-text" style="color:#ff3333; font-weight:bold; margin-top:5px; display:none; font-size:0.85rem;"></div>
@@ -96,35 +103,96 @@
   <!-- ゲームオーバー画面 -->
   <div id="game-over">
     <h1 id="death-reason">捕まった...</h1>
-    <button id="retry-btn">もう一度プレイ</button>
+    <button id="retry-btn" class="retry-btn">もう一度プレイ</button>
+  </div>
+
+  <!-- ゲームクリア画面 -->
+  <div id="game-clear">
+    <h1>脱出成功！</h1>
+    <p style="font-size:1.1rem;">PCの起動に成功し、無事に森から脱出できた！</p>
+    <button id="clear-retry-btn" class="retry-btn">タイトルへ戻る</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const bgm = new Audio('bgm.mp3');
     bgm.loop = true;
-    bgm.volume = 0;
     const jumpScareVoice = new Audio('voice.mp3');
+
+    // 🔊 Web Audio
+    let audioCtx = null;
+    let bgmGainNode = null;
+    let bgmSourceNode = null;
+
+    function setupWebAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        bgmSourceNode = audioCtx.createMediaElementSource(bgm);
+        bgmGainNode = audioCtx.createGain();
+        bgmSourceNode.connect(bgmGainNode);
+        bgmGainNode.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
 
     const startBtn = document.getElementById('start-btn');
     const retryBtn = document.getElementById('retry-btn');
+    const clearRetryBtn = document.getElementById('clear-retry-btn');
     const lightBtn = document.getElementById('light-btn');
     const dashBtn = document.getElementById('dash-btn');
     const batteryValEl = document.getElementById('battery-val');
     const staminaValEl = document.getElementById('stamina-val');
+    const partsValEl = document.getElementById('parts-val');
     const warningText = document.getElementById('warning-text');
 
     let isGameStarted = false;
     let isGameOver = false;
+    let isGameClear = false;
     let isLightOn = true;
     let isDashing = false;
     let battery = 100;
     let stamina = 100;
+    let collectedParts = 0;
+    const totalParts = 4;
     let noBatteryTime = 0;
 
-    // 3D空間初期構築
+    // --- 🎨 動的テクスチャ生成 ---
+    function createGrassTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1e3318'; ctx.fillRect(0,0,256,256);
+      for(let i=0; i<3000; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? '#142410' : '#284520';
+        ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(40, 40);
+      return tex;
+    }
+
+    function createRoadTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#222225'; ctx.fillRect(0,0,128,256);
+      // 白線（中央破線）
+      ctx.fillStyle = '#e0e0e0';
+      ctx.fillRect(60, 20, 8, 80);
+      ctx.fillRect(60, 150, 8, 80);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1, 30);
+      return tex;
+    }
+
+    // 3D空間構築
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x050508, 0.05);
+    scene.fog = new THREE.FogExp2(0x040406, 0.055);
 
     const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -132,16 +200,16 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // 環境光＆ライト
-    const ambientLight = new THREE.AmbientLight(0x22222a, 0.3);
+    // ライティング
+    const ambientLight = new THREE.AmbientLight(0x111118, 0.1);
     scene.add(ambientLight);
 
-    const flashLight = new THREE.SpotLight(0xffffff, 20, 60, Math.PI / 4, 0.3, 1);
+    const flashLight = new THREE.SpotLight(0xfffae6, 25, 45, Math.PI / 5.5, 0.85, 1.5);
     camera.add(flashLight);
-    flashLight.target.position.set(0, 0, -1);
+    flashLight.target.position.set(0, -0.25, -1);
     camera.add(flashLight.target);
 
-    const localLight = new THREE.PointLight(0xffffff, 2, 10);
+    const localLight = new THREE.PointLight(0xfffae6, 0.2, 5);
     camera.add(localLight);
     scene.add(camera);
 
@@ -149,13 +217,13 @@
       isLightOn = on;
       flashLight.visible = on;
       localLight.visible = on;
-      ambientLight.intensity = on ? 0.3 : 0.03;
+      ambientLight.intensity = on ? 0.1 : 0.01;
       lightBtn.innerText = on ? 'ライト ON' : 'ライト OFF';
     }
 
     function toggleLight(e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
-      if (battery > 0 && isGameStarted && !isGameOver) {
+      if (battery > 0 && isGameStarted && !isGameOver && !isGameClear) {
         setLightState(!isLightOn);
       }
     }
@@ -164,9 +232,7 @@
 
     function startDash(e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
-      if (isGameStarted && !isGameOver && stamina > 0) {
-        isDashing = true;
-      }
+      if (isGameStarted && !isGameOver && !isGameClear && stamina > 0) isDashing = true;
     }
     function stopDash(e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -178,38 +244,108 @@
     dashBtn.addEventListener('touchcancel', stopDash, { passive: false });
     dashBtn.addEventListener('mousedown', startDash);
     dashBtn.addEventListener('mouseup', stopDash);
-    dashBtn.addEventListener('mouseleave', stopDash);
 
     startBtn.addEventListener('click', () => { initAndStartGame(); });
     retryBtn.addEventListener('click', () => { initAndStartGame(); });
+    clearRetryBtn.addEventListener('click', () => { initAndStartGame(); });
 
-    // 地面 (300 x 300)
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.9 });
+    // 🌿 草地地面 (300 x 300)
+    const groundMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.95 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // 木 (180本)
-    const treeGeo = new THREE.CylinderGeometry(0.2, 0.5, 5, 6);
-    const treeMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.8 });
+    // 🛣️ 中央の公道 (幅12, 長さ300)
+    const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.8 });
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 300), roadMat);
+    road.rotation.x = -Math.PI / 2;
+    road.position.y = 0.02; // 草地の上
+    scene.add(road);
+
+    // 🚇 トンネル構造（Z = -140）
+    const tunnelGroup = new THREE.Group();
+    tunnelGroup.position.set(0, 0, -140);
+
+    const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.9 });
+    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 20), tunnelMat);
+    wallLeft.position.set(-6, 3, 0);
+    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 20), tunnelMat);
+    wallRight.position.set(6, 3, 0);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(14, 2, 20), tunnelMat);
+    roof.position.set(0, 6, 0);
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 2), tunnelMat);
+    backWall.position.set(0, 3, -10);
+
+    tunnelGroup.add(wallLeft, wallRight, roof, backWall);
+    scene.add(tunnelGroup);
+
+    // 🖥️ トンネル奥の脱出用PC
+    const pcGroup = new THREE.Group();
+    pcGroup.position.set(0, 0.5, -147);
+    const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x332211 }));
+    const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x003344 }));
+    monitorMesh.position.set(0, 0.8, 0);
+    pcGroup.add(deskMesh, monitorMesh);
+    scene.add(pcGroup);
+
+    // 🌲 リアルな3Dの木作成関数
+    function createTree() {
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.4, 3, 6),
+        new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.9 })
+      );
+      trunk.position.y = 1.5;
+      const leaves = new THREE.Mesh(
+        new THREE.ConeGeometry(2, 5, 6),
+        new THREE.MeshStandardMaterial({ color: 0x0d220a, roughness: 0.8 })
+      );
+      leaves.position.y = 4.5;
+      tree.add(trunk, leaves);
+      return tree;
+    }
+
+    // 木の配置（道路上を避けて180本散布）
     for (let i = 0; i < 180; i++) {
-      const tree = new THREE.Mesh(treeGeo, treeMat);
-      tree.position.set((Math.random() - 0.5) * 260, 2.5, (Math.random() - 0.5) * 260);
+      const tree = createTree();
+      let x = (Math.random() - 0.5) * 260;
+      let z = (Math.random() - 0.5) * 260;
+      if (Math.abs(x) < 9) x += (x >= 0 ? 10 : -10); // 道路を避ける
+      tree.position.set(x, 0, z);
       if (tree.position.distanceTo(camera.position) > 8) scene.add(tree);
     }
 
-    // バッテリーアイテム (10個)
+    // 🔋 バッテリーアイテム (10個)
     const batteries = [];
     const battGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
-    const battMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x666600 });
+    const battMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x888800 });
 
     function spawnBattery() {
       const batt = new THREE.Mesh(battGeo, battMat);
-      batt.position.set((Math.random() - 0.5) * 240, 0.3, (Math.random() - 0.5) * 240);
+      let x = (Math.random() - 0.5) * 240;
+      let z = (Math.random() - 0.5) * 240;
+      batt.position.set(x, 0.3, z);
       scene.add(batt);
       batteries.push(batt);
     }
     for (let i = 0; i < 10; i++) spawnBattery();
+
+    // 💻 PCパーツアイテム (4個)
+    const pcParts = [];
+    const partGeo = new THREE.BoxGeometry(0.5, 0.2, 0.4);
+    const partMat = new THREE.MeshStandardMaterial({ color: 0x00ff66, emissive: 0x00aa44, roughness: 0.2 });
+
+    function spawnPCParts() {
+      for (let i = 0; i < totalParts; i++) {
+        const part = new THREE.Mesh(partGeo, partMat);
+        // マップの4つのエリアに分散配置
+        let x = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 80);
+        let z = (Math.random() - 0.5) * 220;
+        part.position.set(x, 0.3, z);
+        scene.add(part);
+        pcParts.push(part);
+      }
+    }
 
     // 敵（こくにい）
     const textureLoader = new THREE.TextureLoader();
@@ -224,37 +360,49 @@
     let enemyMoveDir = new THREE.Vector3(0, 0, 1);
 
     function getNewPatrolTarget() {
-      patrolTarget.set((Math.random() - 0.5) * 240, 1.75, (Math.random() - 0.5) * 80);
+      patrolTarget.set((Math.random() - 0.5) * 240, 1.75, (Math.random() - 0.5) * 200);
     }
 
     let animationFrameId = null;
     let lastTime = 0;
 
     function initAndStartGame() {
-      camera.position.set(0, 1.6, 0);
+      setupWebAudio();
+
+      camera.position.set(0, 1.6, 50); // 道路上でスタート
       cameraRotation = { yaw: 0, pitch: 0 };
       
       battery = 100;
       stamina = 100;
+      collectedParts = 0;
+      partsValEl.innerText = collectedParts;
       isDashing = false;
       setLightState(true);
       noBatteryTime = 0;
       
+      // PCパーツの初期化＆再配置
+      pcParts.forEach(p => scene.remove(p));
+      pcParts.length = 0;
+      spawnPCParts();
+
       enemyState = 'PATROL';
       enemy.position.set(0, 1.75, -25);
       getNewPatrolTarget();
 
       isGameOver = false;
+      isGameClear = false;
       isGameStarted = true;
 
       document.getElementById('start-screen').style.display = 'none';
       document.getElementById('game-over').style.display = 'none';
+      document.getElementById('game-clear').style.display = 'none';
       document.getElementById('ui').style.display = 'block';
       lightBtn.style.display = 'block';
       dashBtn.style.display = 'block';
 
       bgm.pause();
       bgm.currentTime = 0;
+      if (bgmGainNode) bgmGainNode.gain.value = 0;
 
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       lastTime = performance.now();
@@ -268,7 +416,7 @@
     let cameraRotation = { yaw: 0, pitch: 0 };
 
     window.addEventListener('touchstart', (e) => {
-      if (!isGameStarted || isGameOver) return;
+      if (!isGameStarted || isGameOver || isGameClear) return;
       for (let touch of e.changedTouches) {
         const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
         if (targetEl && (targetEl.tagName === 'BUTTON' || targetEl.closest('button'))) continue;
@@ -284,7 +432,7 @@
     });
 
     window.addEventListener('touchmove', (e) => {
-      if (!isGameStarted || isGameOver) return;
+      if (!isGameStarted || isGameOver || isGameClear) return;
       for (let touch of e.changedTouches) {
         if (touch.identifier === moveTouchId) {
           moveDir.side = Math.min(Math.max((touch.clientX - moveStart.x) / 40, -1), 1);
@@ -312,7 +460,7 @@
     const patrolSpeed = 0.035;
 
     function animate() {
-      if (!isGameStarted || isGameOver) return;
+      if (!isGameStarted || isGameOver || isGameClear) return;
       animationFrameId = requestAnimationFrame(animate);
 
       const now = performance.now();
@@ -337,15 +485,9 @@
       if (isDashing && stamina > 0 && isMoving) {
         currentSpeed = dashSpeed;
         stamina -= delta * 25;
-        if (stamina <= 0) {
-          stamina = 0;
-          isDashing = false;
-        }
+        if (stamina <= 0) { stamina = 0; isDashing = false; }
       } else {
-        if (stamina < 100) {
-          stamina += delta * 15;
-          if (stamina > 100) stamina = 100;
-        }
+        if (stamina < 100) { stamina += delta * 15; if (stamina > 100) stamina = 100; }
       }
       staminaValEl.innerText = Math.ceil(stamina);
 
@@ -377,6 +519,32 @@
           scene.remove(batt);
           batteries.splice(i, 1);
           spawnBattery();
+        }
+      }
+
+      // 💻 PCパーツ回収処理
+      for (let i = pcParts.length - 1; i >= 0; i--) {
+        const part = pcParts[i];
+        part.rotation.y += delta * 3;
+        if (camera.position.distanceTo(part.position) < 1.8) {
+          collectedParts++;
+          partsValEl.innerText = collectedParts;
+          scene.remove(part);
+          pcParts.splice(i, 1);
+
+          if (collectedParts >= totalParts) {
+            warningText.style.display = 'block';
+            warningText.style.color = '#00ffff';
+            warningText.innerText = '⚡ パーツが揃った！トンネル奥のPCを起動しろ！';
+          }
+        }
+      }
+
+      // 🏁 トンネル奥PCでのクリア判定
+      if (collectedParts >= totalParts) {
+        if (camera.position.distanceTo(pcGroup.position) < 2.5) {
+          triggerGameClear();
+          return;
         }
       }
 
@@ -425,23 +593,21 @@
         }
       }
 
-      // 🔊 追跡（CHASE）時のみ再生するロジックへ完全切り替え
+      // 🔊 音量リアルタイム制御
       if (enemyState === 'CHASE' && distToPlayer < 18) {
-        // まだ再生されていなければ頭から鳴らす！
         if (bgm.paused) {
           bgm.currentTime = 0;
           bgm.play().catch(e => console.log(e));
         }
-        // 距離に応じた音量調整 (最大0.5)
-        const maxVol = 0.5;
-        let targetVolume = (1 - (distToPlayer / 18)) * maxVol;
-        bgm.volume = Math.max(0.05, Math.min(maxVol, targetVolume));
+        const ratio = Math.max(0, 1 - (distToPlayer / 18));
+        const targetVolume = Math.pow(ratio, 1.2) * 0.8;
+        if (bgmGainNode) bgmGainNode.gain.value = targetVolume;
       } else {
-        // 追われていない（または距離が18m以上離れた）ならピタッと止める
         if (!bgm.paused) {
           bgm.pause();
           bgm.currentTime = 0;
         }
+        if (bgmGainNode) bgmGainNode.gain.value = 0;
       }
 
       // 当たり判定
@@ -455,9 +621,19 @@
     function triggerGameOver(reason) {
       isGameOver = true;
       bgm.pause();
+      if (bgmGainNode) bgmGainNode.gain.value = 0;
       jumpScareVoice.play();
       document.getElementById('death-reason').innerText = reason;
       document.getElementById('game-over').style.display = 'flex';
+      lightBtn.style.display = 'none';
+      dashBtn.style.display = 'none';
+    }
+
+    function triggerGameClear() {
+      isGameClear = true;
+      bgm.pause();
+      if (bgmGainNode) bgmGainNode.gain.value = 0;
+      document.getElementById('game-clear').style.display = 'flex';
       lightBtn.style.display = 'none';
       dashBtn.style.display = 'none';
     }
