@@ -105,7 +105,6 @@
     bgm.loop = true;
     bgm.volume = 0;
     const jumpScareVoice = new Audio('voice.mp3');
-    let audioUnlocked = false;
 
     const startBtn = document.getElementById('start-btn');
     const retryBtn = document.getElementById('retry-btn');
@@ -225,7 +224,7 @@
     let enemyMoveDir = new THREE.Vector3(0, 0, 1);
 
     function getNewPatrolTarget() {
-      patrolTarget.set((Math.random() - 0.5) * 240, 1.75, (Math.random() - 0.5) * 240);
+      patrolTarget.set((Math.random() - 0.5) * 240, 1.75, (Math.random() - 0.5) * 80);
     }
 
     let animationFrameId = null;
@@ -254,9 +253,8 @@
       lightBtn.style.display = 'block';
       dashBtn.style.display = 'block';
 
+      bgm.pause();
       bgm.currentTime = 0;
-      bgm.volume = 0;
-      bgm.play().then(() => { audioUnlocked = true; }).catch(e => console.log(e));
 
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       lastTime = performance.now();
@@ -427,14 +425,22 @@
         }
       }
 
-      // 🔊 音量コントロール
-      if (audioUnlocked) {
-        if (enemyState === 'CHASE' && distToPlayer < 18) {
-          const maxVol = 0.5;
-          let targetVolume = (1 - (distToPlayer / 18)) * maxVol;
-          bgm.volume = Math.max(0, Math.min(maxVol, targetVolume));
-        } else {
-          bgm.volume = 0;
+      // 🔊 追跡（CHASE）時のみ再生するロジックへ完全切り替え
+      if (enemyState === 'CHASE' && distToPlayer < 18) {
+        // まだ再生されていなければ頭から鳴らす！
+        if (bgm.paused) {
+          bgm.currentTime = 0;
+          bgm.play().catch(e => console.log(e));
+        }
+        // 距離に応じた音量調整 (最大0.5)
+        const maxVol = 0.5;
+        let targetVolume = (1 - (distToPlayer / 18)) * maxVol;
+        bgm.volume = Math.max(0.05, Math.min(maxVol, targetVolume));
+      } else {
+        // 追われていない（または距離が18m以上離れた）ならピタッと止める
+        if (!bgm.paused) {
+          bgm.pause();
+          bgm.currentTime = 0;
         }
       }
 
