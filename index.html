@@ -81,7 +81,8 @@
     }
 
     const textureLoader = new THREE.TextureLoader();
-    const enemyTexture = textureLoader.load('kokunii.png');
+    // ⬇️ ここを jpeg/jpg に対応させました！
+    const enemyTexture = textureLoader.load('kokunii.jpg');
     const enemyMaterial = new THREE.SpriteMaterial({ map: enemyTexture });
     const enemy = new THREE.Sprite(enemyMaterial);
     enemy.scale.set(3.5, 3.5, 1);
