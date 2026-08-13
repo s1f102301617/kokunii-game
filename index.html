@@ -204,9 +204,9 @@
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = 256;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#1e3318'; ctx.fillRect(0,0,256,256);
+      ctx.fillStyle = '#182b14'; ctx.fillRect(0,0,256,256);
       for(let i=0; i<3000; i++) {
-        ctx.fillStyle = Math.random() > 0.5 ? '#142410' : '#284520';
+        ctx.fillStyle = Math.random() > 0.5 ? '#101d0d' : '#223c1b';
         ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
       }
       const tex = new THREE.CanvasTexture(canvas);
@@ -308,18 +308,6 @@
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // マップ外周の壁
-    const outerWallMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 1.0 });
-    const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(150, 8, 2), outerWallMat);
-    wallNorth.position.set(0, 4, -75);
-    const wallSouth = new THREE.Mesh(new THREE.BoxGeometry(150, 8, 2), outerWallMat);
-    wallSouth.position.set(0, 4, 75);
-    const wallEast = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 150), outerWallMat);
-    wallEast.position.set(75, 4, 0);
-    const wallWest = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 150), outerWallMat);
-    wallWest.position.set(-75, 4, 0);
-    scene.add(wallNorth, wallSouth, wallEast, wallWest);
-
     // 公道
     const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.0 });
     const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 150), roadMat);
@@ -327,38 +315,67 @@
     road.position.y = 0.02;
     scene.add(road);
 
-    // 山・トンネル
-    const mountainMat = new THREE.MeshStandardMaterial({ color: 0x0a1408, roughness: 1.0 });
-    const mountainHill = new THREE.Mesh(new THREE.ConeGeometry(35, 16, 10), mountainMat);
-    mountainHill.position.set(0, 7, -55);
-    scene.add(mountainHill);
+    // ⛰️ リアルな「山肌（急斜面崖）」の構築 (Z = -55 にマップを横断する山を設置)
+    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x111c0f, roughness: 1.0 });
+    
+    // 山の斜面（大・中・小の岩山を組み合わせて自然な山肌を作る）
+    const mainMountain = new THREE.Mesh(new THREE.BoxGeometry(160, 25, 30), cliffMat);
+    mainMountain.position.set(0, 12, -68);
+    mainMountain.rotation.x = 0.15; // 手前に少し傾けて山肌感を出す
+    scene.add(mainMountain);
 
-    const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0, -55);
-    const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 1.0, metalness: 0.0 });
+    // 🚇 リアルのコンクリート坑門（ポータル枠＋翼壁）
+    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x1c1c20, roughness: 0.9, metalness: 0.0 });
+    
+    const portalGroup = new THREE.Group();
+    portalGroup.position.set(0, 0, -52);
 
-    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 36), tunnelMat);
-    wallLeft.position.set(-5, 3.5, 0);
-    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 36), tunnelMat);
-    wallRight.position.set(5, 3.5, 0);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(12, 2, 36), tunnelMat);
-    roof.position.set(0, 7, 0);
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 9, 2), tunnelMat);
-    backWall.position.set(0, 3.5, -18);
+    // トンネル正面ポータル枠
+    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(16, 2.5, 2), concreteMat);
+    portalTop.position.set(0, 6.5, 0);
+    const portalLeftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), concreteMat);
+    portalLeftWall.position.set(-6.75, 3.5, 0);
+    const portalRightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), concreteMat);
+    portalRightWall.position.set(6.75, 3.5, 0);
 
-    tunnelGroup.add(wallLeft, wallRight, roof, backWall);
-    scene.add(tunnelGroup);
+    // 左右の斜め擁壁（山の斜面を抑える壁）
+    const wingLeft = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), concreteMat);
+    wingLeft.position.set(-12, 3, 2);
+    wingLeft.rotation.y = Math.PI / 8;
+    const wingRight = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), concreteMat);
+    wingRight.position.set(12, 3, 2);
+    wingRight.rotation.y = -Math.PI / 8;
 
-    // PC
+    portalGroup.add(portalTop, portalLeftWall, portalRightWall, wingLeft, wingRight);
+    scene.add(portalGroup);
+
+    // 🚇 トンネル内部構造（山の中に穿たれた洞）
+    const tunnelInternalGroup = new THREE.Group();
+    tunnelInternalGroup.position.set(0, 0, -53);
+
+    const tunnelInsideMat = new THREE.MeshStandardMaterial({ color: 0x121215, roughness: 1.0, metalness: 0.0 });
+    const inLeft = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 30), tunnelInsideMat);
+    inLeft.position.set(-5.5, 3.5, -15);
+    const inRight = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 30), tunnelInsideMat);
+    inRight.position.set(5.5, 3.5, -15);
+    const inRoof = new THREE.Mesh(new THREE.BoxGeometry(12, 1, 30), tunnelInsideMat);
+    inRoof.position.set(0, 7, -15);
+    const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 1), tunnelInsideMat);
+    inBack.position.set(0, 3.5, -30);
+
+    tunnelInternalGroup.add(inLeft, inRight, inRoof, inBack);
+    scene.add(tunnelInternalGroup);
+
+    // PC（トンネル最奥部 Z = -80）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -72);
+    pcGroup.position.set(0, 0.5, -80);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
     pcGroup.add(deskMesh, monitorMesh);
     scene.add(pcGroup);
 
-    // 木の配置
+    // 🌲 木の生成関数
     function createTree() {
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(
@@ -375,13 +392,34 @@
       return tree;
     }
 
-    for (let i = 0; i < 90; i++) {
+    // 🌲 1. マップ中央・森の中の通常木配置 (80本)
+    for (let i = 0; i < 80; i++) {
       const tree = createTree();
-      let x = (Math.random() - 0.5) * 130;
-      let z = (Math.random() - 0.5) * 130;
+      let x = (Math.random() - 0.5) * 120;
+      let z = (Math.random() - 0.5) * 110;
       if (Math.abs(x) < 7) x += (x >= 0 ? 8 : -8);
       tree.position.set(x, 0, z);
       if (tree.position.distanceTo(camera.position) > 6) scene.add(tree);
+    }
+
+    // 🌲 2. 境界線用の重厚な密林帯（人工的な外壁をなくし、立ち入れないほどの樹木で自然に囲む）
+    for (let i = 0; i < 160; i++) {
+      const tree = createTree();
+      tree.scale.set(1.2, 1.3, 1.2); // 外周の木は大きくして重厚感を出す
+      let side = Math.floor(Math.random() * 3);
+      let x, z;
+      if (side === 0) { // 東側境界
+        x = 68 + Math.random() * 8;
+        z = (Math.random() - 0.5) * 140;
+      } else if (side === 1) { // 西側境界
+        x = -68 - Math.random() * 8;
+        z = (Math.random() - 0.5) * 140;
+      } else { // 南側境界（スタート後ろ）
+        x = (Math.random() - 0.5) * 150;
+        z = 68 + Math.random() * 8;
+      }
+      tree.position.set(x, 0, z);
+      scene.add(tree);
     }
 
     // バッテリー
@@ -392,7 +430,7 @@
     function spawnBattery() {
       const batt = new THREE.Mesh(battGeo, battMat);
       let x = (Math.random() - 0.5) * 110;
-      let z = (Math.random() - 0.5) * 110;
+      let z = (Math.random() - 0.5) * 100;
       batt.position.set(x, 0.3, z);
       scene.add(batt);
       batteries.push(batt);
@@ -408,14 +446,14 @@
       for (let i = 0; i < totalParts; i++) {
         const part = new THREE.Mesh(partGeo, partMat);
         let x = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 45);
-        let z = (Math.random() - 0.5) * 90;
+        let z = (Math.random() - 0.5) * 85;
         part.position.set(x, 0.3, z);
         scene.add(part);
         pcParts.push(part);
       }
     }
 
-    // 👾 敵（こくにい）: kokunii.PNG (大文字) に対応！
+    // 👾 敵（こくにい）
     const textureLoader = new THREE.TextureLoader();
     const enemyTexture = textureLoader.load('kokunii.PNG');
     const enemyMaterial = new THREE.SpriteMaterial({ map: enemyTexture, transparent: true });
@@ -631,7 +669,7 @@
         }
       }
 
-      // 移動計算 ＋ 外壁当たり判定
+      // 移動計算 ＋ 見えない壁判定（密林の外側へ行かないよう制限）
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
@@ -642,8 +680,9 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      camera.position.x = Math.max(-72, Math.min(72, camera.position.x));
-      camera.position.z = Math.max(-72, Math.min(72, camera.position.z));
+      // 見えない境界判定
+      camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
+      camera.position.z = Math.max(-50, Math.min(68, camera.position.z)); // トンネル入口以奥へはトンネル内からのみ進行
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
