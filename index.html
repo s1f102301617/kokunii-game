@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   
+  <!-- 🚫 キャッシュ無効化（アプデを即反映させる設定） -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <!-- iPhone全画面アプリ（PWA）化のための設定 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -120,7 +125,7 @@
 
     // 3D空間初期構築
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x050508, 0.05); // マップ拡大にともない霧の密度を調整
+    scene.fog = new THREE.FogExp2(0x050508, 0.05);
 
     const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -149,7 +154,6 @@
       lightBtn.innerText = on ? 'ライト ON' : 'ライト OFF';
     }
 
-    // ボタン切り替えイベントハンドラー
     function toggleLight(e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
       if (battery > 0 && isGameStarted && !isGameOver) {
@@ -159,7 +163,6 @@
     lightBtn.addEventListener('touchstart', toggleLight, { passive: false });
     lightBtn.addEventListener('mousedown', toggleLight);
 
-    // ダッシュボタン処理
     function startDash(e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
       if (isGameStarted && !isGameOver && stamina > 0) {
@@ -181,13 +184,13 @@
     startBtn.addEventListener('click', () => { initAndStartGame(); });
     retryBtn.addEventListener('click', () => { initAndStartGame(); });
 
-    // 🗺️ 広大化された地面 (300 x 300)
+    // 地面 (300 x 300)
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.9 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // 🌲 木の配置量アップ (180本)
+    // 木 (180本)
     const treeGeo = new THREE.CylinderGeometry(0.2, 0.5, 5, 6);
     const treeMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.8 });
     for (let i = 0; i < 180; i++) {
@@ -196,7 +199,7 @@
       if (tree.position.distanceTo(camera.position) > 8) scene.add(tree);
     }
 
-    // 🔋 バッテリーアイテム (10個配置)
+    // バッテリーアイテム (10個)
     const batteries = [];
     const battGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
     const battMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x666600 });
@@ -305,11 +308,10 @@
     window.addEventListener('touchend', endTouch);
     window.addEventListener('touchcancel', endTouch);
 
-    // ⚙️ 速度設定（歩きよりこくにいを少し速く！）
-    const normalSpeed = 0.07;   // プレイヤー（歩き）
-    const dashSpeed = 0.12;     // プレイヤー（ダッシュ）
-    const chaseSpeed = 0.078;   // こくにい追跡（歩きより速い！要ダッシュ）
-    const patrolSpeed = 0.035;   // こくにい徘徊
+    const normalSpeed = 0.07;
+    const dashSpeed = 0.12;
+    const chaseSpeed = 0.078;
+    const patrolSpeed = 0.035;
 
     function animate() {
       if (!isGameStarted || isGameOver) return;
@@ -403,7 +405,7 @@
           }
         }
       } else if (enemyState === 'CHASE') {
-        if (distToPlayer > 22) { // 広大化に伴い追尾解除距離を少し微調整
+        if (distToPlayer > 22) {
           enemyState = 'PATROL';
           getNewPatrolTarget();
         }
