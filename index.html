@@ -199,7 +199,7 @@
       keys[e.code] = false;
     });
 
-    // 動的テクスチャ
+    // 🎨 テクスチャ動的生成
     function createGrassTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = 256;
@@ -226,6 +226,74 @@
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(1, 15);
+      return tex;
+    }
+
+    // 🧱 リアルなコンクリートテクスチャ（目地・水滴の染み・ノイズ）
+    function createConcreteTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      
+      // ベースの汚れたグレー
+      ctx.fillStyle = '#28282c'; ctx.fillRect(0,0,512,512);
+      
+      // ザラザラ質感ノイズ
+      for(let i=0; i<12000; i++) {
+        const v = Math.floor(Math.random() * 50);
+        ctx.fillStyle = `rgba(${v},${v},${v},0.15)`;
+        ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+      }
+      
+      // 壁を伝う水濡れ・カビの縦シミ
+      ctx.fillStyle = 'rgba(10, 12, 15, 0.35)';
+      for(let i=0; i<20; i++) {
+        const x = Math.random() * 512;
+        const w = 15 + Math.random() * 35;
+        ctx.fillRect(x, Math.random() * 100, w, 200 + Math.random() * 300);
+      }
+      
+      // コンクリートパネル目地（グリッド線）
+      ctx.strokeStyle = '#121215';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(0, 0, 512, 512);
+      ctx.beginPath();
+      ctx.moveTo(0, 256); ctx.lineTo(512, 256);
+      ctx.moveTo(256, 0); ctx.lineTo(256, 512);
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, 8);
+      return tex;
+    }
+
+    // 🚧 ポータル警戒色テクスチャ（黄色と黒の注意ストライプ）
+    function createWarningTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#222225'; ctx.fillRect(0,0,512,128);
+      
+      const stripeW = 32;
+      ctx.fillStyle = '#b8860b'; // くすんだ黄色
+      for (let i = -512; i < 1024; i += stripeW * 2) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i + stripeW, 0);
+        ctx.lineTo(i + stripeW - 64, 128);
+        ctx.lineTo(i - 64, 128);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 汚れ
+      for(let i=0; i<3000; i++) {
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(Math.random()*512, Math.random()*128, 2, 2);
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
       return tex;
     }
 
@@ -315,30 +383,30 @@
     road.position.y = 0.02;
     scene.add(road);
 
-    // ⛰️ リアルな「山肌（急斜面崖）」の構築 (Z = -55 にマップを横断する山を設置)
+    // ⛰️ 山の岩肌斜面
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x111c0f, roughness: 1.0 });
-    
-    // 山の斜面（大・中・小の岩山を組み合わせて自然な山肌を作る）
     const mainMountain = new THREE.Mesh(new THREE.BoxGeometry(160, 25, 30), cliffMat);
     mainMountain.position.set(0, 12, -68);
-    mainMountain.rotation.x = 0.15; // 手前に少し傾けて山肌感を出す
+    mainMountain.rotation.x = 0.15;
     scene.add(mainMountain);
 
-    // 🚇 リアルのコンクリート坑門（ポータル枠＋翼壁）
-    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x1c1c20, roughness: 0.9, metalness: 0.0 });
-    
+    // 🚇 本格アーチ坑門＆カマボコ型トンネル構築
+    const concreteTex = createConcreteTexture();
+    const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.95, side: THREE.DoubleSide });
+    const warningTex = createWarningTexture();
+    const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
+
+    // 1. ポータル（坑口正面・警戒色）
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -52);
 
-    // トンネル正面ポータル枠
-    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(16, 2.5, 2), concreteMat);
+    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(16, 2.5, 2), warningMat);
     portalTop.position.set(0, 6.5, 0);
     const portalLeftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), concreteMat);
     portalLeftWall.position.set(-6.75, 3.5, 0);
     const portalRightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), concreteMat);
     portalRightWall.position.set(6.75, 3.5, 0);
 
-    // 左右の斜め擁壁（山の斜面を抑える壁）
     const wingLeft = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), concreteMat);
     wingLeft.position.set(-12, 3, 2);
     wingLeft.rotation.y = Math.PI / 8;
@@ -349,33 +417,49 @@
     portalGroup.add(portalTop, portalLeftWall, portalRightWall, wingLeft, wingRight);
     scene.add(portalGroup);
 
-    // 🚇 トンネル内部構造（山の中に穿たれた洞）
-    const tunnelInternalGroup = new THREE.Group();
-    tunnelInternalGroup.position.set(0, 0, -53);
+    // 2. アーチ型（カマボコ構造）のトンネル本体
+    const tunnelGroup = new THREE.Group();
+    tunnelGroup.position.set(0, 0, -53);
 
-    const tunnelInsideMat = new THREE.MeshStandardMaterial({ color: 0x121215, roughness: 1.0, metalness: 0.0 });
-    const inLeft = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 30), tunnelInsideMat);
-    inLeft.position.set(-5.5, 3.5, -15);
-    const inRight = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 30), tunnelInsideMat);
-    inRight.position.set(5.5, 3.5, -15);
-    const inRoof = new THREE.Mesh(new THREE.BoxGeometry(12, 1, 30), tunnelInsideMat);
-    inRoof.position.set(0, 7, -15);
-    const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 1), tunnelInsideMat);
-    inBack.position.set(0, 3.5, -30);
+    // 半円筒アーチ天井（CylinderGeometry）
+    const archGeo = new THREE.CylinderGeometry(5.8, 5.8, 32, 24, 1, true, 0, Math.PI);
+    const archMesh = new THREE.Mesh(archGeo, concreteMat);
+    archMesh.rotation.z = Math.PI / 2;
+    archMesh.rotation.y = Math.PI / 2;
+    archMesh.position.set(0, 3.8, -16);
+    tunnelGroup.add(archMesh);
 
-    tunnelInternalGroup.add(inLeft, inRight, inRoof, inBack);
-    scene.add(tunnelInternalGroup);
+    // トンネル最奥の行き止め壁
+    const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 1), concreteMat);
+    inBack.position.set(0, 3.5, -32);
+    tunnelGroup.add(inBack);
 
-    // PC（トンネル最奥部 Z = -80）
+    scene.add(tunnelGroup);
+
+    // 🚨 トンネル内の非常灯（オレンジ色の点灯ライト）
+    for (let zPos of [-60, -70, -80]) {
+      const lampMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.4, 0.2),
+        new THREE.MeshBasicMaterial({ color: 0xff6600 })
+      );
+      lampMesh.position.set(-5.3, 4.5, zPos);
+      scene.add(lampMesh);
+
+      const lampLight = new THREE.PointLight(0xff6600, 1.5, 12);
+      lampLight.position.set(-4.8, 4.5, zPos);
+      scene.add(lampLight);
+    }
+
+    // PC（トンネル最奥部 Z = -82）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -80);
+    pcGroup.position.set(0, 0.5, -82);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
     pcGroup.add(deskMesh, monitorMesh);
     scene.add(pcGroup);
 
-    // 🌲 木の生成関数
+    // 木の生成関数
     function createTree() {
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(
@@ -392,7 +476,6 @@
       return tree;
     }
 
-    // 🌲 1. マップ中央・森の中の通常木配置 (80本)
     for (let i = 0; i < 80; i++) {
       const tree = createTree();
       let x = (Math.random() - 0.5) * 120;
@@ -402,22 +485,15 @@
       if (tree.position.distanceTo(camera.position) > 6) scene.add(tree);
     }
 
-    // 🌲 2. 境界線用の重厚な密林帯（人工的な外壁をなくし、立ち入れないほどの樹木で自然に囲む）
+    // 密林外周
     for (let i = 0; i < 160; i++) {
       const tree = createTree();
-      tree.scale.set(1.2, 1.3, 1.2); // 外周の木は大きくして重厚感を出す
+      tree.scale.set(1.2, 1.3, 1.2);
       let side = Math.floor(Math.random() * 3);
       let x, z;
-      if (side === 0) { // 東側境界
-        x = 68 + Math.random() * 8;
-        z = (Math.random() - 0.5) * 140;
-      } else if (side === 1) { // 西側境界
-        x = -68 - Math.random() * 8;
-        z = (Math.random() - 0.5) * 140;
-      } else { // 南側境界（スタート後ろ）
-        x = (Math.random() - 0.5) * 150;
-        z = 68 + Math.random() * 8;
-      }
+      if (side === 0) { x = 68 + Math.random() * 8; z = (Math.random() - 0.5) * 140; }
+      else if (side === 1) { x = -68 - Math.random() * 8; z = (Math.random() - 0.5) * 140; }
+      else { x = (Math.random() - 0.5) * 150; z = 68 + Math.random() * 8; }
       tree.position.set(x, 0, z);
       scene.add(tree);
     }
@@ -669,7 +745,7 @@
         }
       }
 
-      // 移動計算 ＋ 見えない壁判定（密林の外側へ行かないよう制限）
+      // 移動計算 ＋ 境界制限
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
@@ -680,9 +756,8 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      // 見えない境界判定
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-50, Math.min(68, camera.position.z)); // トンネル入口以奥へはトンネル内からのみ進行
+      camera.position.z = Math.max(-82, Math.min(68, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
