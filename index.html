@@ -87,12 +87,12 @@
   <div id="rotate-notice">
     <div style="font-size: 3.5rem; margin-bottom: 15px;">📱↪️</div>
     <h2 style="margin: 0 0 10px;">画面を横向きにしてください</h2>
-    <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック」を解除して<br>横に持ってプレイしてください</p>
+    <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック`」を解除して<br>横に持ってプレイしてください</p>
   </div>
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.4.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.6.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -457,30 +457,39 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山の斜面（完全に奥の Z=-72 に配置し、トンネルの視界を絶対に塞がない設計）
+    // ⛰️ 山肌を「トンネルの穴をくり抜いた形状（左・右・上）」に分割して配置（これでトンネルが塞がらない！）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
-    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(180, 40, 25), cliffMat);
-    mountainWall.position.set(0, 18, -75);
-    scene.add(mountainWall);
 
-    // 🚇 完全リセットされた洞窟トンネル構造 (Z = -50 から Z = -82)
+    const mountainLeft = new THREE.Mesh(new THREE.BoxGeometry(70, 35, 20), cliffMat);
+    mountainLeft.position.set(-39, 15, -60);
+    scene.add(mountainLeft);
+
+    const mountainRight = new THREE.Mesh(new THREE.BoxGeometry(70, 35, 20), cliffMat);
+    mountainRight.position.set(39, 15, -60);
+    scene.add(mountainRight);
+
+    const mountainTop = new THREE.Mesh(new THREE.BoxGeometry(10, 22, 20), cliffMat);
+    mountainTop.position.set(0, 26, -60);
+    scene.add(mountainTop);
+
+    // 🚇 完全にくり抜かれたトンネル構造 (Z = -50 から Z = -85)
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
-    // トンネル内部（BOX反転による完全密閉空間・透けない仕様）
-    const tunnelGeo = new THREE.BoxGeometry(10, 7, 32);
+    // トンネル内部（BackSideで中から綺麗な空間に見える仕様）
+    const tunnelGeo = new THREE.BoxGeometry(10, 7, 35);
     const tunnelInsideMat = new THREE.MeshStandardMaterial({ 
       map: concreteTex, 
       roughness: 0.95, 
       side: THREE.BackSide 
     });
     const tunnelMesh = new THREE.Mesh(tunnelGeo, tunnelInsideMat);
-    tunnelMesh.position.set(0, 3.5, -66);
+    tunnelMesh.position.set(0, 3.5, -67.5);
     scene.add(tunnelMesh);
 
-    // 入口ポータルフレーム
+    // 入口ポータル枠（立体フレーム）
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -50);
 
@@ -508,9 +517,9 @@
       scene.add(lampLight);
     }
 
-    // PC（トンネル最奥部 Z = -80）
+    // PC（トンネル最奥部 Z = -84）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -80);
+    pcGroup.position.set(0, 0.5, -84);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
@@ -854,7 +863,7 @@
       // 🛑 3. 🚇 トンネルの壁・側面の厳格なすり抜け防止判定
       if (camera.position.z <= -50) {
         if (camera.position.x > -4.5 && camera.position.x < 4.5) {
-          if (camera.position.z < -80) camera.position.z = -80;
+          if (camera.position.z < -84) camera.position.z = -84;
         } else {
           if (oldZ > -50) camera.position.z = -50;
           if (oldX <= -4.5 && camera.position.x > -4.5) camera.position.x = -4.5;
@@ -864,7 +873,7 @@
 
       // マップ外周境界
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-80, Math.min(64, camera.position.z));
+      camera.position.z = Math.max(-84, Math.min(64, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
