@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.7.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.8.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -457,39 +457,50 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山肌（トンネルの開口部に完全に合わせたサイズ・位置に再構築）
+    // ⛰️ 山肌（トンネルの背後に配置）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
-    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(160, 40, 20), cliffMat);
-    mountainWall.position.set(0, 18, -68);
+    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(180, 45, 25), cliffMat);
+    mountainWall.position.set(0, 20, -78);
     scene.add(mountainWall);
 
-    // 🚇 完全にくり抜かれたトンネル構造 (Z = -50 から Z = -85)
+    // 🚇 本物のアーチ型トンネル構造（カマボコ天井 ＋ 左右壁 ＋ 最奥壁）
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
-    // トンネル内部（幅10, 高さ7）
-    const tunnelGeo = new THREE.BoxGeometry(10, 7, 35);
-    const tunnelInsideMat = new THREE.MeshStandardMaterial({ 
-      map: concreteTex, 
-      roughness: 0.95, 
-      side: THREE.BackSide 
-    });
-    const tunnelMesh = new THREE.Mesh(tunnelGeo, tunnelInsideMat);
-    tunnelMesh.position.set(0, 3.5, -67.5);
-    scene.add(tunnelMesh);
+    const tunnelGroup = new THREE.Group();
+    tunnelGroup.position.set(0, 0, -50);
 
-    // 入口ポータル枠（幅10, 高さ7の開口部にぴったりのサイズ）
+    // 左壁
+    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 35), concreteMat);
+    wallL.position.set(-4.5, 3, -17.5);
+    // 右壁
+    const wallR = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 35), concreteMat);
+    wallR.position.set(4.5, 3, -17.5);
+    // 半円アーチ天井
+    const archGeo = new THREE.CylinderGeometry(4.5, 4.5, 35, 20, 1, true, 0, Math.PI);
+    const archMesh = new THREE.Mesh(archGeo, concreteMat);
+    archMesh.rotation.z = Math.PI / 2;
+    archMesh.rotation.y = Math.PI / 2;
+    archMesh.position.set(0, 6, -17.5);
+    // 奥の壁
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 1), concreteMat);
+    backWall.position.set(0, 4, -35);
+
+    tunnelGroup.add(wallL, wallR, archMesh, backWall);
+    scene.add(tunnelGroup);
+
+    // 入口ポータル枠（アーチ形状に合わせた警戒色フレーム）
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -50);
 
-    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(12, 1.5, 1.5), warningMat);
+    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(11, 1.5, 1.5), warningMat);
     portalTop.position.set(0, 6.25, 0);
     const portalL = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1.5), concreteMat);
-    portalL.position.set(-5.5, 3.5, 0);
+    portalL.position.set(-5, 3.5, 0);
     const portalR = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1.5), concreteMat);
-    portalR.position.set(5.5, 3.5, 0);
+    portalR.position.set(5, 3.5, 0);
 
     portalGroup.add(portalTop, portalL, portalR);
     scene.add(portalGroup);
@@ -500,17 +511,17 @@
         new THREE.BoxGeometry(0.3, 0.4, 0.2),
         new THREE.MeshBasicMaterial({ color: 0xff6600 })
       );
-      lampMesh.position.set(-4.8, 4.5, zPos);
+      lampMesh.position.set(-4.2, 4.5, zPos);
       scene.add(lampMesh);
 
       const lampLight = new THREE.PointLight(0xff6600, 1.5, 12);
-      lampLight.position.set(-4.3, 4.5, zPos);
+      lampLight.position.set(-3.8, 4.5, zPos);
       scene.add(lampLight);
     }
 
-    // PC（トンネル最奥部 Z = -84）
+    // PC（トンネル最奥部 Z = -82）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -84);
+    pcGroup.position.set(0, 0.5, -82);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
@@ -851,27 +862,20 @@
         }
       }
 
-      // 🛑 3. 🚇 山肌・トンネルのすり抜けを完全に防ぐ厳格な衝突判定
+      // 🛑 3. 🚇 トンネルの壁・側面の厳格なすり抜け防止判定
       if (camera.position.z <= -50) {
-        // トンネルの内部（幅は -4.5 ～ 4.5）にいる場合
-        if (camera.position.x > -4.5 && camera.position.x < 4.5) {
-          if (camera.position.z < -84) camera.position.z = -84; // 奥の行き止まり
+        if (camera.position.x > -4.0 && camera.position.x < 4.0) {
+          if (camera.position.z < -82) camera.position.z = -82;
         } else {
-          // トンネルの幅の外（＝山肌やトンネルの横壁の外側）にいる場合、絶対に内部や山の中に入れないようにブロック
-          if (oldZ > -50) {
-            camera.position.z = -50; // 正面から山に突っ込んだ場合
-          } else {
-            // トンネルの横壁や山肌の側面・背後からのすり抜けブロック
-            if (oldX <= -4.5 && camera.position.x > -4.5) camera.position.x = -4.5;
-            if (oldX >= 4.5 && camera.position.x < 4.5) camera.position.x = 4.5;
-            if (camera.position.z < -68) camera.position.z = -68; // 山の奥行きより後ろに行かせない
-          }
+          if (oldZ > -50) camera.position.z = -50;
+          if (oldX <= -4.0 && camera.position.x > -4.0) camera.position.x = -4.0;
+          if (oldX >= 4.0 && camera.position.x < 4.0) camera.position.x = 4.0;
         }
       }
 
       // マップ外周境界
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-84, Math.min(64, camera.position.z));
+      camera.position.z = Math.max(-82, Math.min(64, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
