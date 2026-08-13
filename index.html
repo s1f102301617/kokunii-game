@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.8.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.9.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -457,53 +457,61 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山肌（トンネルの背後に配置）
-    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
-    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(180, 45, 25), cliffMat);
-    mountainWall.position.set(0, 20, -78);
-    scene.add(mountainWall);
+    // 🛑 トンネルおよび山肌の当たり判定用データ配列（木やガードレールと同じ仕組み）
+    const solidColliders = [];
 
-    // 🚇 本物のアーチ型トンネル構造（カマボコ天井 ＋ 左右壁 ＋ 最奥壁）
+    // ⛰️ 山肌（トンネルの左右と上に配置し、衝突判定を登録）
+    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
+
+    const mountainLeft = new THREE.Mesh(new THREE.BoxGeometry(70, 40, 20), cliffMat);
+    mountainLeft.position.set(-39, 20, -56);
+    scene.add(mountainLeft);
+    solidColliders.push({ minX: -74, maxX: -4, minZ: -66, maxZ: -46 });
+
+    const mountainRight = new THREE.Mesh(new THREE.BoxGeometry(70, 40, 20), cliffMat);
+    mountainRight.position.set(39, 20, -56);
+    scene.add(mountainRight);
+    solidColliders.push({ minX: 4, maxX: 74, minZ: -66, maxZ: -46 });
+
+    const mountainTop = new THREE.Mesh(new THREE.BoxGeometry(10, 25, 20), cliffMat);
+    mountainTop.position.set(0, 27.5, -56);
+    scene.add(mountainTop);
+
+    // 🚇 シンプルで綺麗なトンネル構造 (Z = -50 から Z = -82)
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
-    const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0, -50);
+    // トンネル内部（幅8, 高さ6の直方体ボックス）
+    const tunnelGeo = new THREE.BoxGeometry(8, 6, 32);
+    const tunnelInsideMat = new THREE.MeshStandardMaterial({ 
+      map: concreteTex, 
+      roughness: 0.95, 
+      side: THREE.BackSide 
+    });
+    const tunnelMesh = new THREE.Mesh(tunnelGeo, tunnelInsideMat);
+    tunnelMesh.position.set(0, 3, -66);
+    scene.add(tunnelMesh);
 
-    // 左壁
-    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 35), concreteMat);
-    wallL.position.set(-4.5, 3, -17.5);
-    // 右壁
-    const wallR = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 35), concreteMat);
-    wallR.position.set(4.5, 3, -17.5);
-    // 半円アーチ天井
-    const archGeo = new THREE.CylinderGeometry(4.5, 4.5, 35, 20, 1, true, 0, Math.PI);
-    const archMesh = new THREE.Mesh(archGeo, concreteMat);
-    archMesh.rotation.z = Math.PI / 2;
-    archMesh.rotation.y = Math.PI / 2;
-    archMesh.position.set(0, 6, -17.5);
-    // 奥の壁
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 1), concreteMat);
-    backWall.position.set(0, 4, -35);
-
-    tunnelGroup.add(wallL, wallR, archMesh, backWall);
-    scene.add(tunnelGroup);
-
-    // 入口ポータル枠（アーチ形状に合わせた警戒色フレーム）
+    // 入口ポータル枠
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -50);
 
-    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(11, 1.5, 1.5), warningMat);
-    portalTop.position.set(0, 6.25, 0);
-    const portalL = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1.5), concreteMat);
-    portalL.position.set(-5, 3.5, 0);
-    const portalR = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1.5), concreteMat);
-    portalR.position.set(5, 3.5, 0);
+    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(10, 1.5, 1.5), warningMat);
+    portalTop.position.set(0, 5.25, 0);
+    const portalL = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 1.5), concreteMat);
+    portalL.position.set(-4.5, 3, 0);
+    const portalR = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 1.5), concreteMat);
+    portalR.position.set(4.5, 3, 0);
 
     portalGroup.add(portalTop, portalL, portalR);
     scene.add(portalGroup);
+
+    // 🛑 トンネルの左右の壁の当たり判定を登録（これで絶対にすり抜けない）
+    solidColliders.push({ minX: -5.5, maxX: -4.0, minZ: -82, maxZ: -50 }); // 左壁
+    solidColliders.push({ minX: 4.0, maxX: 5.5, minZ: -82, maxZ: -50 });  // 右壁
+    solidColliders.push({ minX: -4.0, maxX: 4.0, minZ: -84, maxZ: -80 }); // 奥の壁
 
     // 🚨 非常灯
     for (let zPos of [-58, -68, -78]) {
@@ -511,17 +519,17 @@
         new THREE.BoxGeometry(0.3, 0.4, 0.2),
         new THREE.MeshBasicMaterial({ color: 0xff6600 })
       );
-      lampMesh.position.set(-4.2, 4.5, zPos);
+      lampMesh.position.set(-3.8, 4.0, zPos);
       scene.add(lampMesh);
 
       const lampLight = new THREE.PointLight(0xff6600, 1.5, 12);
-      lampLight.position.set(-3.8, 4.5, zPos);
+      lampLight.position.set(-3.4, 4.0, zPos);
       scene.add(lampLight);
     }
 
-    // PC（トンネル最奥部 Z = -82）
+    // PC（トンネル最奥部 Z = -80）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -82);
+    pcGroup.position.set(0, 0.5, -80);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
@@ -833,7 +841,7 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      // 🛑 1. 木との衝突
+      // 🛑 1. 木との衝突判定
       for (let t of treeColliders) {
         const dx = camera.position.x - t.x;
         const dz = camera.position.z - t.z;
@@ -849,7 +857,7 @@
         }
       }
 
-      // 🛑 2. ガードレールとの衝突
+      // 🛑 2. ガードレールとの衝突判定
       if (camera.position.z < 60 && camera.position.z > -50) {
         const inGap = isInsideGap(camera.position.z);
         if (!inGap) {
@@ -862,20 +870,36 @@
         }
       }
 
-      // 🛑 3. 🚇 トンネルの壁・側面の厳格なすり抜け防止判定
-      if (camera.position.z <= -50) {
-        if (camera.position.x > -4.0 && camera.position.x < 4.0) {
-          if (camera.position.z < -82) camera.position.z = -82;
-        } else {
-          if (oldZ > -50) camera.position.z = -50;
-          if (oldX <= -4.0 && camera.position.x > -4.0) camera.position.x = -4.0;
-          if (oldX >= 4.0 && camera.position.x < 4.0) camera.position.x = 4.0;
+      // 🛑 3. 山肌・トンネル壁面の衝突判定（木やガードレールと同じBOX判定ロジックを適用）
+      const playerRadius = 0.3;
+      for (let box of solidColliders) {
+        if (
+          camera.position.x + playerRadius > box.minX &&
+          camera.position.x - playerRadius < box.maxX &&
+          camera.position.z + playerRadius > box.minZ &&
+          camera.position.z - playerRadius < box.maxZ
+        ) {
+          // どの方向からぶつかったかに応じて押し戻す
+          const pX = camera.position.x;
+          const pZ = camera.position.z;
+          
+          const dMinX = Math.abs(pX - box.minX);
+          const dMaxX = Math.abs(pX - box.maxX);
+          const dMinZ = Math.abs(pZ - box.minZ);
+          const dMaxZ = Math.abs(pZ - box.maxZ);
+          
+          const minD = Math.min(dMinX, dMaxX, dMinZ, dMaxZ);
+          
+          if (minD === dMinX) camera.position.x = box.minX - playerRadius;
+          else if (minD === dMaxX) camera.position.x = box.maxX + playerRadius;
+          else if (minD === dMinZ) camera.position.z = box.minZ - playerRadius;
+          else if (minD === dMaxZ) camera.position.z = box.maxZ + playerRadius;
         }
       }
 
       // マップ外周境界
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-82, Math.min(64, camera.position.z));
+      camera.position.z = Math.max(-80, Math.min(64, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
