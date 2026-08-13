@@ -73,7 +73,10 @@
     #game-clear { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 100, 180, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 150; text-align: center; }
     #game-clear h1 { font-size: 2.5rem; color: #00ffff; text-shadow: 0 0 15px #00ffff; margin-bottom: 10px; }
 
-    .retry-btn { font-size: 1.2rem; padding: 14px 28px; background: #fff; color: #000; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-top: 15px; }
+    .btn-group { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
+    .action-btn { font-size: 1.1rem; padding: 12px 24px; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .retry-btn { background: #ff3333; color: #fff; }
+    .home-btn { background: #ffffff; color: #000; }
   </style>
 </head>
 <body>
@@ -112,14 +115,20 @@
   <!-- ゲームオーバー画面 -->
   <div id="game-over">
     <h1 id="death-reason">捕まった...</h1>
-    <button id="retry-btn" class="retry-btn">もう一度プレイ</button>
+    <div class="btn-group">
+      <button id="retry-btn" class="action-btn retry-btn">🎮 もう一度プレイ</button>
+      <button id="home-btn-over" class="action-btn home-btn">🏠 タイトル画面へ</button>
+    </div>
   </div>
 
   <!-- ゲームクリア画面 -->
   <div id="game-clear">
     <h1>脱出成功！</h1>
     <p style="font-size:1.1rem;">PCの起動に成功し、無事に森から脱出できた！</p>
-    <button id="clear-retry-btn" class="retry-btn">タイトルへ戻る</button>
+    <div class="btn-group">
+      <button id="clear-retry-btn" class="action-btn retry-btn">🎮 もう一度プレイ</button>
+      <button id="home-btn-clear" class="action-btn home-btn">🏠 タイトル画面へ</button>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -166,7 +175,9 @@
 
     const startBtn = document.getElementById('start-btn');
     const retryBtn = document.getElementById('retry-btn');
+    const homeBtnOver = document.getElementById('home-btn-over');
     const clearRetryBtn = document.getElementById('clear-retry-btn');
+    const homeBtnClear = document.getElementById('home-btn-clear');
     const lightBtn = document.getElementById('light-btn');
     const dashBtn = document.getElementById('dash-btn');
     const batteryValEl = document.getElementById('battery-val');
@@ -229,33 +240,23 @@
       return tex;
     }
 
-    // 🧱 リアルなコンクリートテクスチャ（目地・水滴の染み・ノイズ）
     function createConcreteTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 512;
       const ctx = canvas.getContext('2d');
-      
-      // ベースの汚れたグレー
       ctx.fillStyle = '#28282c'; ctx.fillRect(0,0,512,512);
-      
-      // ザラザラ質感ノイズ
       for(let i=0; i<12000; i++) {
         const v = Math.floor(Math.random() * 50);
         ctx.fillStyle = `rgba(${v},${v},${v},0.15)`;
         ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
       }
-      
-      // 壁を伝う水濡れ・カビの縦シミ
       ctx.fillStyle = 'rgba(10, 12, 15, 0.35)';
       for(let i=0; i<20; i++) {
         const x = Math.random() * 512;
         const w = 15 + Math.random() * 35;
         ctx.fillRect(x, Math.random() * 100, w, 200 + Math.random() * 300);
       }
-      
-      // コンクリートパネル目地（グリッド線）
-      ctx.strokeStyle = '#121215';
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#121215'; ctx.lineWidth = 6;
       ctx.strokeRect(0, 0, 512, 512);
       ctx.beginPath();
       ctx.moveTo(0, 256); ctx.lineTo(512, 256);
@@ -268,31 +269,18 @@
       return tex;
     }
 
-    // 🚧 ポータル警戒色テクスチャ（黄色と黒の注意ストライプ）
     function createWarningTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#222225'; ctx.fillRect(0,0,512,128);
-      
       const stripeW = 32;
-      ctx.fillStyle = '#b8860b'; // くすんだ黄色
+      ctx.fillStyle = '#b8860b';
       for (let i = -512; i < 1024; i += stripeW * 2) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i + stripeW, 0);
-        ctx.lineTo(i + stripeW - 64, 128);
-        ctx.lineTo(i - 64, 128);
-        ctx.closePath();
-        ctx.fill();
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + stripeW, 0);
+        ctx.lineTo(i + stripeW - 64, 128); ctx.lineTo(i - 64, 128);
+        ctx.closePath(); ctx.fill();
       }
-
-      // 汚れ
-      for(let i=0; i<3000; i++) {
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.fillRect(Math.random()*512, Math.random()*128, 2, 2);
-      }
-
       const tex = new THREE.CanvasTexture(canvas);
       return tex;
     }
@@ -370,6 +358,25 @@
     retryBtn.addEventListener('click', () => { unlockAudio(); initAndStartGame(); });
     clearRetryBtn.addEventListener('click', () => { unlockAudio(); initAndStartGame(); });
 
+    function goToHome() {
+      isGameStarted = false;
+      isGameOver = false;
+      isGameClear = false;
+      bgm.pause();
+      if (bgmGainNode) bgmGainNode.gain.value = 0;
+      if (document.exitPointerLock) document.exitPointerLock();
+
+      document.getElementById('game-over').style.display = 'none';
+      document.getElementById('game-clear').style.display = 'none';
+      document.getElementById('ui').style.display = 'none';
+      lightBtn.style.display = 'none';
+      dashBtn.style.display = 'none';
+      document.getElementById('start-screen').style.display = 'flex';
+    }
+
+    homeBtnOver.addEventListener('click', goToHome);
+    homeBtnClear.addEventListener('click', goToHome);
+
     // 地面 (150x150)
     const groundMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.95 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), groundMat);
@@ -383,20 +390,43 @@
     road.position.y = 0.02;
     scene.add(road);
 
-    // ⛰️ 山の岩肌斜面
+    // 🚧 通行止めバリケード＆ガードレール
+    const barricadeGroup = new THREE.Group();
+    barricadeGroup.position.set(0, 0, 65);
+
+    const fenceMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.5 });
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8 });
+
+    const fenceBoard = new THREE.Mesh(new THREE.BoxGeometry(10, 1.2, 0.2), fenceMat);
+    fenceBoard.position.set(0, 1.2, 0);
+    const pole1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.2), poleMat);
+    pole1.position.set(-4.5, 1.1, 0);
+    const pole2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.2), poleMat);
+    pole2.position.set(4.5, 1.1, 0);
+
+    barricadeGroup.add(fenceBoard, pole1, pole2);
+    scene.add(barricadeGroup);
+
+    const guardRailMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.4 });
+    const railLeft = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 120), guardRailMat);
+    railLeft.position.set(-5.2, 0.8, 0);
+    const railRight = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 120), guardRailMat);
+    railRight.position.set(5.2, 0.8, 0);
+    scene.add(railLeft, railRight);
+
+    // ⛰️ 山の岩肌斜面（トンネルに食い込まないよう位置を適切に後方へ配置）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x111c0f, roughness: 1.0 });
-    const mainMountain = new THREE.Mesh(new THREE.BoxGeometry(160, 25, 30), cliffMat);
-    mainMountain.position.set(0, 12, -68);
-    mainMountain.rotation.x = 0.15;
+    const mainMountain = new THREE.Mesh(new THREE.BoxGeometry(160, 28, 35), cliffMat);
+    mainMountain.position.set(0, 13, -76);
+    mainMountain.rotation.x = 0.1;
     scene.add(mainMountain);
 
-    // 🚇 本格アーチ坑門＆カマボコ型トンネル構築
+    // 🚇 トンネル構造（両面描画で透けを完全防止）
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.95, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
-    const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
+    const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8, side: THREE.DoubleSide });
 
-    // 1. ポータル（坑口正面・警戒色）
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -52);
 
@@ -417,11 +447,9 @@
     portalGroup.add(portalTop, portalLeftWall, portalRightWall, wingLeft, wingRight);
     scene.add(portalGroup);
 
-    // 2. アーチ型（カマボコ構造）のトンネル本体
     const tunnelGroup = new THREE.Group();
     tunnelGroup.position.set(0, 0, -53);
 
-    // 半円筒アーチ天井（CylinderGeometry）
     const archGeo = new THREE.CylinderGeometry(5.8, 5.8, 32, 24, 1, true, 0, Math.PI);
     const archMesh = new THREE.Mesh(archGeo, concreteMat);
     archMesh.rotation.z = Math.PI / 2;
@@ -429,14 +457,13 @@
     archMesh.position.set(0, 3.8, -16);
     tunnelGroup.add(archMesh);
 
-    // トンネル最奥の行き止め壁
     const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 1), concreteMat);
     inBack.position.set(0, 3.5, -32);
     tunnelGroup.add(inBack);
 
     scene.add(tunnelGroup);
 
-    // 🚨 トンネル内の非常灯（オレンジ色の点灯ライト）
+    // 🚨 非常灯
     for (let zPos of [-60, -70, -80]) {
       const lampMesh = new THREE.Mesh(
         new THREE.BoxGeometry(0.3, 0.4, 0.2),
@@ -757,7 +784,7 @@
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-82, Math.min(68, camera.position.z));
+      camera.position.z = Math.max(-82, Math.min(64, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
