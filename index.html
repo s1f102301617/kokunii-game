@@ -8,48 +8,86 @@
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
     #start-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 30; text-align: center; }
     #start-screen h1 { font-size: 1.8rem; color: #ff3333; margin-bottom: 20px; }
-    #start-btn { font-size: 1.2rem; padding: 15px 30px; background: #ff3333; color: #fff; border: none; border-radius: 8px; font-weight: bold; }
+    #start-btn { font-size: 1.2rem; padding: 15px 30px; background: #ff3333; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
     #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
-    #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.9); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; }
-    #game-over h1 { font-size: 2.5rem; margin-bottom: 10px; }
-    #game-over button { font-size: 1.2rem; padding: 12px 24px; background: #fff; color: #000; border: none; border-radius: 5px; font-weight: bold; }
+    #battery-ui { margin-top: 8px; font-weight: bold; color: #ffff00; font-size: 1.1rem; }
+
+    /* 懐中電灯ON/OFFボタン */
+    #light-btn { position: absolute; top: 15px; right: 15px; z-index: 15; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 20px; font-weight: bold; display: none; }
+
+    /* 接近時の画面赤フラッシュ・ノイズオーバーレイ */
+    #danger-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; background: rgba(255,0,0,0); }
+
+    #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; }
+    #game-over h1 { font-size: 2.2rem; margin-bottom: 10px; }
+    #game-over button { font-size: 1.2rem; padding: 12px 24px; background: #fff; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
   </style>
 </head>
 <body>
 
+  <!-- 赤フラッシュ用レイヤー -->
+  <div id="danger-overlay"></div>
+
   <div id="start-screen">
     <h1>恐怖の森 - こくにい避難指示</h1>
-    <p style="margin-bottom: 30px;">音が出ます。画面をタップして開始</p>
+    <p style="margin-bottom: 30px;">※音が出ます。画面をタップして開始</p>
     <button id="start-btn">ゲーム開始</button>
   </div>
 
   <div id="ui">
     <h2 style="margin:0; font-size:1.2rem;">こくにいから逃げろ！</h2>
-    <p style="margin:5px 0 0; font-size:0.8rem; opacity:0.8;">画面左側ドラッグ：移動<br>画面右側ドラッグ：視点変更</p>
+    <p style="margin:4px 0 0; font-size:0.75rem; opacity:0.8;">左画面ドラッグ：移動 / 右画面ドラッグ：視点</p>
+    <div id="battery-ui">⚡ バッテリー: <span id="battery-val">100</span>%</div>
+    <div id="warning-text" style="color:#ff3333; font-weight:bold; margin-top:5px; display:none; font-size:0.9rem;"></div>
   </div>
 
+  <button id="light-btn">ライト ON</button>
+
   <div id="game-over">
-    <h1>捕まった...</h1>
+    <h1 id="death-reason">捕まった...</h1>
     <button onclick="location.reload()">もう一度プレイ</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
+    // 音声データ
     const bgm = new Audio('bgm.mp3');
     bgm.loop = true;
     bgm.volume = 0;
     const jumpScareVoice = new Audio('voice.mp3');
     let audioUnlocked = false;
 
+    // UI要素
+    const lightBtn = document.getElementById('light-btn');
+    const batteryValEl = document.getElementById('battery-val');
+    const warningText = document.getElementById('warning-text');
+    const dangerOverlay = document.getElementById('danger-overlay');
+
+    let isLightOn = true;
+    let battery = 100;
+    let noBatteryTime = 0;
+
+    // ライトON/OFF切替
+    lightBtn.addEventListener('click', () => {
+      if (battery > 0) {
+        isLightOn = !isLightOn;
+        lightBtn.innerText = isLightOn ? 'ライト ON' : 'ライト OFF';
+        flashLight.visible = isLightOn;
+      }
+    });
+
     document.getElementById('start-btn').addEventListener('click', () => {
       document.getElementById('start-screen').style.display = 'none';
       document.getElementById('ui').style.display = 'block';
+      lightBtn.style.display = 'block';
       bgm.play().then(() => { audioUnlocked = true; }).catch(e => console.log(e));
       animate();
     });
 
+    // 3D空間構築
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.15);
+    scene.fog = new THREE.FogExp2(0x0a0a0c, 0.08); // 霧をやや薄くして視認性を確保
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1.6, 0);
@@ -59,29 +97,49 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0x050505);
+    // 環境光（道を少し見やすくするために調整）
+    const ambientLight = new THREE.AmbientLight(0x222225);
     scene.add(ambientLight);
 
-    const flashLight = new THREE.SpotLight(0xffffff, 4, 20, Math.PI / 5, 0.5, 1);
+    // 懐中電灯
+    const flashLight = new THREE.SpotLight(0xffffff, 5, 25, Math.PI / 4, 0.5, 1);
     camera.add(flashLight);
     flashLight.target.position.set(0, 0, -1);
     camera.add(flashLight.target);
     scene.add(camera);
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+    // 地面（濃いグレーでみやすく）
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(120, 120),
+      new THREE.MeshBasicMaterial({ color: 0x1f1f22 })
+    );
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
+    // 木の配置
     const treeGeo = new THREE.CylinderGeometry(0.2, 0.5, 5, 6);
-    const treeMat = new THREE.MeshBasicMaterial({ color: 0x080808 });
-    for (let i = 0; i < 50; i++) {
+    const treeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+    for (let i = 0; i < 60; i++) {
       const tree = new THREE.Mesh(treeGeo, treeMat);
-      tree.position.set((Math.random() - 0.5) * 80, 2.5, (Math.random() - 0.5) * 80);
+      tree.position.set((Math.random() - 0.5) * 90, 2.5, (Math.random() - 0.5) * 90);
       if (tree.position.distanceTo(camera.position) > 6) scene.add(tree);
     }
 
+    // バッテリー拾いアイテム（黄色く光るシリンダー）
+    const batteries = [];
+    const battGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
+    const battMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+
+    function spawnBattery() {
+      const batt = new THREE.Mesh(battGeo, battMat);
+      batt.position.set((Math.random() - 0.5) * 75, 0.3, (Math.random() - 0.5) * 75);
+      scene.add(batt);
+      batteries.push(batt);
+    }
+    for (let i = 0; i < 5; i++) spawnBattery();
+
+    // 敵（こくにい）
     const textureLoader = new THREE.TextureLoader();
-    // ⬇️ ここを jpeg/jpg に対応させました！
     const enemyTexture = textureLoader.load('kokunii.jpg');
     const enemyMaterial = new THREE.SpriteMaterial({ map: enemyTexture });
     const enemy = new THREE.Sprite(enemyMaterial);
@@ -89,6 +147,7 @@
     enemy.position.set(0, 1.75, -25);
     scene.add(enemy);
 
+    // タッチ操作制御
     let moveTouchId = null, lookTouchId = null;
     let moveStart = { x: 0, y: 0 }, lookStart = { x: 0, y: 0 };
     let moveDir = { forward: 0, side: 0 };
@@ -96,6 +155,7 @@
 
     window.addEventListener('touchstart', (e) => {
       for (let touch of e.changedTouches) {
+        if (touch.target === lightBtn) continue;
         if (touch.clientX < window.innerWidth / 2 && moveTouchId === null) {
           moveTouchId = touch.identifier;
           moveStart = { x: touch.clientX, y: touch.clientY };
@@ -131,11 +191,63 @@
     let isGameOver = false;
     const playerSpeed = 0.07;
     const enemySpeed = 0.045;
+    let lastTime = performance.now();
 
     function animate() {
       if (isGameOver) return;
       requestAnimationFrame(animate);
 
+      const now = performance.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+
+      // 🔋 バッテリーの減量処理
+      if (isLightOn && battery > 0) {
+        battery -= delta * 3.5; // 約28秒で0%に
+        if (battery <= 0) {
+          battery = 0;
+          isLightOn = false;
+          flashLight.visible = false;
+          lightBtn.innerText = 'ライト 0%';
+        }
+      }
+      batteryValEl.innerText = Math.ceil(battery);
+
+      // 💀 バッテリー0%で5秒経過で強制的急襲ペナルティ
+      if (battery <= 0) {
+        noBatteryTime += delta;
+        warningText.style.display = 'block';
+        warningText.innerText = `⚠️ 闇の中！残り ${(Math.max(0, 5 - noBatteryTime)).toFixed(1)}秒で急襲！`;
+
+        if (noBatteryTime >= 5.0) {
+          // プレイヤーの真前に急出現
+          const frontDir = new THREE.Vector3(0, 0, -1.2).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
+          enemy.position.copy(camera.position).add(frontDir);
+          enemy.position.y = 1.6;
+          triggerGameOver("暗闇の中で捕まった...");
+          return;
+        }
+      } else {
+        noBatteryTime = 0;
+        warningText.style.display = 'none';
+      }
+
+      // ⚡ バッテリーアイテム拾い判定
+      for (let i = batteries.length - 1; i >= 0; i--) {
+        const batt = batteries[i];
+        batt.rotation.y += delta * 2;
+        if (camera.position.distanceTo(batt.position) < 1.5) {
+          battery = 100;
+          isLightOn = true;
+          flashLight.visible = true;
+          lightBtn.innerText = 'ライト ON';
+          scene.remove(batt);
+          batteries.splice(i, 1);
+          spawnBattery();
+        }
+      }
+
+      // 視点移動とプレイヤー移動
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
@@ -145,6 +257,7 @@
       camera.position.addScaledVector(forward, moveDir.forward * playerSpeed);
       camera.position.addScaledVector(side, moveDir.side * playerSpeed);
 
+      // 敵の追尾
       const dir = new THREE.Vector3().subVectors(camera.position, enemy.position);
       dir.y = 0;
       const distance = dir.length();
@@ -154,19 +267,35 @@
         enemy.position.addScaledVector(dir, enemySpeed);
       }
 
+      // 距離に応じたBGM音量
       if (audioUnlocked) {
         let targetVolume = 1 - (distance / 25);
         bgm.volume = Math.max(0, Math.min(1, targetVolume));
       }
 
+      // 🚨 接近時の赤フラッシュ＆ノイズ演出
+      if (distance < 12) {
+        const dangerRatio = 1 - (distance / 12);
+        const flicker = 0.35 + 0.35 * Math.sin(now * 0.025); // チカチカ明滅
+        dangerOverlay.style.background = `rgba(255, 0, 0, ${dangerRatio * flicker})`;
+      } else {
+        dangerOverlay.style.background = `rgba(255, 0, 0, 0)`;
+      }
+
+      // 接触判定
       if (distance < 1.5) {
-        isGameOver = true;
-        bgm.pause();
-        jumpScareVoice.play();
-        document.getElementById('game-over').style.display = 'flex';
+        triggerGameOver("こくにいに捕まった！");
       }
 
       renderer.render(scene, camera);
+    }
+
+    function triggerGameOver(reason) {
+      isGameOver = true;
+      bgm.pause();
+      jumpScareVoice.play();
+      document.getElementById('death-reason').innerText = reason;
+      document.getElementById('game-over').style.display = 'flex';
     }
 
     window.addEventListener('resize', () => {
