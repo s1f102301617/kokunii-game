@@ -119,7 +119,7 @@
     bgm.loop = true;
     const jumpScareVoice = new Audio('voice.mp3');
 
-    // 🔊 Web Audio
+    // 🔊 Web Audio（初回のみ構築）
     let audioCtx = null;
     let bgmGainNode = null;
     let bgmSourceNode = null;
@@ -128,8 +128,8 @@
       if (!audioCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
-        bgmSourceNode = audioCtx.createMediaElementSource(bgm);
         bgmGainNode = audioCtx.createGain();
+        bgmSourceNode = audioCtx.createMediaElementSource(bgm);
         bgmSourceNode.connect(bgmGainNode);
         bgmGainNode.connect(audioCtx.destination);
       }
@@ -180,7 +180,6 @@
       canvas.width = 128; canvas.height = 256;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#222225'; ctx.fillRect(0,0,128,256);
-      // 白線（中央破線）
       ctx.fillStyle = '#e0e0e0';
       ctx.fillRect(60, 20, 8, 80);
       ctx.fillRect(60, 150, 8, 80);
@@ -192,7 +191,7 @@
 
     // 3D空間構築
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x040406, 0.055);
+    scene.fog = new THREE.FogExp2(0x050508, 0.035); // 霧を薄くして視界を改善
 
     const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -201,15 +200,16 @@
     document.body.appendChild(renderer.domElement);
 
     // ライティング
-    const ambientLight = new THREE.AmbientLight(0x111118, 0.1);
+    const ambientLight = new THREE.AmbientLight(0x222230, 0.2);
     scene.add(ambientLight);
 
-    const flashLight = new THREE.SpotLight(0xfffae6, 25, 45, Math.PI / 5.5, 0.85, 1.5);
+    // 💡 自然な広角懐中電灯（照射範囲を前方に広く拡散）
+    const flashLight = new THREE.SpotLight(0xfffae6, 22, 65, Math.PI / 3, 0.5, 1);
     camera.add(flashLight);
-    flashLight.target.position.set(0, -0.25, -1);
+    flashLight.target.position.set(0, 0, -5); // しっかり遠くの前方を照らす
     camera.add(flashLight.target);
 
-    const localLight = new THREE.PointLight(0xfffae6, 0.2, 5);
+    const localLight = new THREE.PointLight(0xfffae6, 0.3, 6);
     camera.add(localLight);
     scene.add(camera);
 
@@ -217,7 +217,7 @@
       isLightOn = on;
       flashLight.visible = on;
       localLight.visible = on;
-      ambientLight.intensity = on ? 0.1 : 0.01;
+      ambientLight.intensity = on ? 0.2 : 0.02;
       lightBtn.innerText = on ? 'ライト ON' : 'ライト OFF';
     }
 
@@ -249,23 +249,22 @@
     retryBtn.addEventListener('click', () => { initAndStartGame(); });
     clearRetryBtn.addEventListener('click', () => { initAndStartGame(); });
 
-    // 🌿 草地地面 (300 x 300)
+    // 地面
     const groundMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.95 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // 🛣️ 中央の公道 (幅12, 長さ300)
+    // 公道
     const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.8 });
     const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 300), roadMat);
     road.rotation.x = -Math.PI / 2;
-    road.position.y = 0.02; // 草地の上
+    road.position.y = 0.02;
     scene.add(road);
 
-    // 🚇 トンネル構造（Z = -140）
+    // トンネル
     const tunnelGroup = new THREE.Group();
     tunnelGroup.position.set(0, 0, -140);
-
     const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.9 });
     const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 20), tunnelMat);
     wallLeft.position.set(-6, 3, 0);
@@ -275,11 +274,10 @@
     roof.position.set(0, 6, 0);
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 2), tunnelMat);
     backWall.position.set(0, 3, -10);
-
     tunnelGroup.add(wallLeft, wallRight, roof, backWall);
     scene.add(tunnelGroup);
 
-    // 🖥️ トンネル奥の脱出用PC
+    // PC
     const pcGroup = new THREE.Group();
     pcGroup.position.set(0, 0.5, -147);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x332211 }));
@@ -288,7 +286,7 @@
     pcGroup.add(deskMesh, monitorMesh);
     scene.add(pcGroup);
 
-    // 🌲 リアルな3Dの木作成関数
+    // 木の配置
     function createTree() {
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(
@@ -305,17 +303,16 @@
       return tree;
     }
 
-    // 木の配置（道路上を避けて180本散布）
     for (let i = 0; i < 180; i++) {
       const tree = createTree();
       let x = (Math.random() - 0.5) * 260;
       let z = (Math.random() - 0.5) * 260;
-      if (Math.abs(x) < 9) x += (x >= 0 ? 10 : -10); // 道路を避ける
+      if (Math.abs(x) < 9) x += (x >= 0 ? 10 : -10);
       tree.position.set(x, 0, z);
       if (tree.position.distanceTo(camera.position) > 8) scene.add(tree);
     }
 
-    // 🔋 バッテリーアイテム (10個)
+    // バッテリー
     const batteries = [];
     const battGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
     const battMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x888800 });
@@ -330,7 +327,7 @@
     }
     for (let i = 0; i < 10; i++) spawnBattery();
 
-    // 💻 PCパーツアイテム (4個)
+    // PCパーツ
     const pcParts = [];
     const partGeo = new THREE.BoxGeometry(0.5, 0.2, 0.4);
     const partMat = new THREE.MeshStandardMaterial({ color: 0x00ff66, emissive: 0x00aa44, roughness: 0.2 });
@@ -338,7 +335,6 @@
     function spawnPCParts() {
       for (let i = 0; i < totalParts; i++) {
         const part = new THREE.Mesh(partGeo, partMat);
-        // マップの4つのエリアに分散配置
         let x = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 80);
         let z = (Math.random() - 0.5) * 220;
         part.position.set(x, 0.3, z);
@@ -369,7 +365,7 @@
     function initAndStartGame() {
       setupWebAudio();
 
-      camera.position.set(0, 1.6, 50); // 道路上でスタート
+      camera.position.set(0, 1.6, 50);
       cameraRotation = { yaw: 0, pitch: 0 };
       
       battery = 100;
@@ -380,7 +376,6 @@
       setLightState(true);
       noBatteryTime = 0;
       
-      // PCパーツの初期化＆再配置
       pcParts.forEach(p => scene.remove(p));
       pcParts.length = 0;
       spawnPCParts();
@@ -522,7 +517,7 @@
         }
       }
 
-      // 💻 PCパーツ回収処理
+      // PCパーツ回収
       for (let i = pcParts.length - 1; i >= 0; i--) {
         const part = pcParts[i];
         part.rotation.y += delta * 3;
@@ -540,7 +535,7 @@
         }
       }
 
-      // 🏁 トンネル奥PCでのクリア判定
+      // トンネルPCクリア判定
       if (collectedParts >= totalParts) {
         if (camera.position.distanceTo(pcGroup.position) < 2.5) {
           triggerGameClear();
