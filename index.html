@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.3.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.4.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -457,22 +457,20 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山の斜面（トンネル入口 Z=-50 より完全に「後ろ（Z=-62）」に配置し食い込み防止）
+    // ⛰️ 山の斜面（完全に奥の Z=-72 に配置し、トンネルの視界を絶対に塞がない設計）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
-
-    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(160, 35, 20), cliffMat);
-    mountainWall.position.set(0, 15, -68);
+    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(180, 40, 25), cliffMat);
+    mountainWall.position.set(0, 18, -75);
     scene.add(mountainWall);
 
-    // 🚇 完全密閉の洞窟トンネル構造 (Z = -50 から Z = -82 へ伸びる)
+    // 🚇 完全リセットされた洞窟トンネル構造 (Z = -50 から Z = -82)
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
-    // トンネル構造体（BOX反転による完全密閉空間）
+    // トンネル内部（BOX反転による完全密閉空間・透けない仕様）
     const tunnelGeo = new THREE.BoxGeometry(10, 7, 32);
-    // 内側のみ描画にしてカメラが入っても透けない
     const tunnelInsideMat = new THREE.MeshStandardMaterial({ 
       map: concreteTex, 
       roughness: 0.95, 
@@ -482,7 +480,7 @@
     tunnelMesh.position.set(0, 3.5, -66);
     scene.add(tunnelMesh);
 
-    // 入口ポータル（立体的なアーチ看板枠）
+    // 入口ポータルフレーム
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -50);
 
@@ -853,14 +851,11 @@
         }
       }
 
-      // 🛑 3. 🚇 トンネルの壁との物理衝突判定（すり抜け防止）
+      // 🛑 3. 🚇 トンネルの壁・側面の厳格なすり抜け防止判定
       if (camera.position.z <= -50) {
-        // トンネル内部（X: -4.5 〜 4.5）にいる場合
         if (camera.position.x > -4.5 && camera.position.x < 4.5) {
-          // 奥の突き当り壁
           if (camera.position.z < -80) camera.position.z = -80;
         } else {
-          // 入口（Z = -50）より奥へは、内部（X: -4.5〜4.5）からしか入れない（側面壁でブロック）
           if (oldZ > -50) camera.position.z = -50;
           if (oldX <= -4.5 && camera.position.x > -4.5) camera.position.x = -4.5;
           if (oldX >= 4.5 && camera.position.x < 4.5) camera.position.x = 4.5;
