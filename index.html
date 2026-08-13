@@ -87,12 +87,12 @@
   <div id="rotate-notice">
     <div style="font-size: 3.5rem; margin-bottom: 15px;">📱↪️</div>
     <h2 style="margin: 0 0 10px;">画面を横向きにしてください</h2>
-    <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック`」を解除して<br>横に持ってプレイしてください</p>
+    <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック」を解除して<br>横に持ってプレイしてください</p>
   </div>
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.6.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.7.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -457,20 +457,11 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山肌を「トンネルの穴をくり抜いた形状（左・右・上）」に分割して配置（これでトンネルが塞がらない！）
+    // ⛰️ 山肌（トンネルの開口部に完全に合わせたサイズ・位置に再構築）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
-
-    const mountainLeft = new THREE.Mesh(new THREE.BoxGeometry(70, 35, 20), cliffMat);
-    mountainLeft.position.set(-39, 15, -60);
-    scene.add(mountainLeft);
-
-    const mountainRight = new THREE.Mesh(new THREE.BoxGeometry(70, 35, 20), cliffMat);
-    mountainRight.position.set(39, 15, -60);
-    scene.add(mountainRight);
-
-    const mountainTop = new THREE.Mesh(new THREE.BoxGeometry(10, 22, 20), cliffMat);
-    mountainTop.position.set(0, 26, -60);
-    scene.add(mountainTop);
+    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(160, 40, 20), cliffMat);
+    mountainWall.position.set(0, 18, -68);
+    scene.add(mountainWall);
 
     // 🚇 完全にくり抜かれたトンネル構造 (Z = -50 から Z = -85)
     const concreteTex = createConcreteTexture();
@@ -478,7 +469,7 @@
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
-    // トンネル内部（BackSideで中から綺麗な空間に見える仕様）
+    // トンネル内部（幅10, 高さ7）
     const tunnelGeo = new THREE.BoxGeometry(10, 7, 35);
     const tunnelInsideMat = new THREE.MeshStandardMaterial({ 
       map: concreteTex, 
@@ -489,16 +480,16 @@
     tunnelMesh.position.set(0, 3.5, -67.5);
     scene.add(tunnelMesh);
 
-    // 入口ポータル枠（立体フレーム）
+    // 入口ポータル枠（幅10, 高さ7の開口部にぴったりのサイズ）
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, -50);
 
-    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(14, 2.5, 1.5), warningMat);
+    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(12, 1.5, 1.5), warningMat);
     portalTop.position.set(0, 6.25, 0);
-    const portalL = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 1.5), concreteMat);
-    portalL.position.set(-6, 3.5, 0);
-    const portalR = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 1.5), concreteMat);
-    portalR.position.set(6, 3.5, 0);
+    const portalL = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1.5), concreteMat);
+    portalL.position.set(-5.5, 3.5, 0);
+    const portalR = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1.5), concreteMat);
+    portalR.position.set(5.5, 3.5, 0);
 
     portalGroup.add(portalTop, portalL, portalR);
     scene.add(portalGroup);
@@ -860,14 +851,21 @@
         }
       }
 
-      // 🛑 3. 🚇 トンネルの壁・側面の厳格なすり抜け防止判定
+      // 🛑 3. 🚇 山肌・トンネルのすり抜けを完全に防ぐ厳格な衝突判定
       if (camera.position.z <= -50) {
+        // トンネルの内部（幅は -4.5 ～ 4.5）にいる場合
         if (camera.position.x > -4.5 && camera.position.x < 4.5) {
-          if (camera.position.z < -84) camera.position.z = -84;
+          if (camera.position.z < -84) camera.position.z = -84; // 奥の行き止まり
         } else {
-          if (oldZ > -50) camera.position.z = -50;
-          if (oldX <= -4.5 && camera.position.x > -4.5) camera.position.x = -4.5;
-          if (oldX >= 4.5 && camera.position.x < 4.5) camera.position.x = 4.5;
+          // トンネルの幅の外（＝山肌やトンネルの横壁の外側）にいる場合、絶対に内部や山の中に入れないようにブロック
+          if (oldZ > -50) {
+            camera.position.z = -50; // 正面から山に突っ込んだ場合
+          } else {
+            // トンネルの横壁や山肌の側面・背後からのすり抜けブロック
+            if (oldX <= -4.5 && camera.position.x > -4.5) camera.position.x = -4.5;
+            if (oldX >= 4.5 && camera.position.x < 4.5) camera.position.x = 4.5;
+            if (camera.position.z < -68) camera.position.z = -68; // 山の奥行きより後ろに行かせない
+          }
         }
       }
 
