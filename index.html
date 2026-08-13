@@ -2,7 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- iPhone全画面アプリ（PWA）化のための設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="こくにいゲーム">
+  
   <title>恐怖の森 - こくにいVer.</title>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
@@ -38,13 +44,9 @@
     /* UI要素 */
     #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
     #battery-ui { margin-top: 8px; font-weight: bold; color: #ffff00; font-size: 1.1rem; }
-    #status-ui { margin-top: 5px; font-size: 0.9rem; font-weight: bold; color: #00ff00; }
 
     /* 懐中電灯ON/OFFボタン */
     #light-btn { position: absolute; top: 15px; right: 15px; z-index: 15; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; display: none; }
-
-    /* 危険察知オーバーレイ */
-    #danger-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; background: rgba(255,0,0,0); }
 
     /* ゲームオーバー画面 */
     #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 150; text-align: center; }
@@ -61,9 +63,6 @@
     <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック」を解除して<br>横に持ってプレイしてください</p>
   </div>
 
-  <!-- 赤フラッシュ用 -->
-  <div id="danger-overlay"></div>
-
   <!-- スタート画面（初期表示） -->
   <div id="start-screen">
     <h1>恐怖の森 - こくにい避難指示</h1>
@@ -76,7 +75,6 @@
     <h2 style="margin:0; font-size:1.2rem;">こくにいから逃げろ！</h2>
     <p style="margin:4px 0 0; font-size:0.75rem; opacity:0.8;">左画面ドラッグ：移動 / 右画面ドラッグ：視点</p>
     <div id="battery-ui">⚡ バッテリー: <span id="battery-val">100</span>%</div>
-    <div id="status-ui">👁️ 状況: 徘徊中...</div>
     <div id="warning-text" style="color:#ff3333; font-weight:bold; margin-top:5px; display:none; font-size:0.9rem;"></div>
   </div>
 
@@ -101,8 +99,6 @@
     const lightBtn = document.getElementById('light-btn');
     const batteryValEl = document.getElementById('battery-val');
     const warningText = document.getElementById('warning-text');
-    const statusUi = document.getElementById('status-ui');
-    const dangerOverlay = document.getElementById('danger-overlay');
 
     let isGameStarted = false;
     let isGameOver = false;
@@ -134,7 +130,7 @@
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0a0a0c, 0.06);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -225,17 +221,9 @@
       document.getElementById('ui').style.display = 'block';
       lightBtn.style.display = 'block';
       lightBtn.innerText = 'ライト ON';
-      dangerOverlay.style.background = 'rgba(255,0,0,0)';
-
-      // フルスクリーン・横固定試行
-      if (document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(()=>{});
-      }
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(()=>{});
-      }
 
       bgm.currentTime = 0;
+      bgm.volume = 0;
       bgm.play().then(() => { audioUnlocked = true; }).catch(e => console.log(e));
 
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
@@ -298,9 +286,9 @@
       const delta = (now - lastTime) / 1000;
       lastTime = now;
 
-      // 🔋 バッテリー消費（10秒に1%減るペース：1秒間に0.1%減少）
+      // バッテリー消費（5秒に1%減）
       if (isLightOn && battery > 0) {
-        battery -= delta * 0.1;
+        battery -= delta * 0.2;
         if (battery <= 0) {
           battery = 0;
           isLightOn = false;
@@ -355,27 +343,23 @@
       camera.position.addScaledVector(forward, moveDir.forward * playerSpeed);
       camera.position.addScaledVector(side, moveDir.side * playerSpeed);
 
-      // こくにいAI：視点＆距離判定
+      // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
       vecToPlayer.y = 0;
       const distToPlayer = vecToPlayer.length();
 
-      let isSpotted = false;
-      if (distToPlayer < 20) {
-        const angle = enemyMoveDir.angleTo(vecToPlayer.clone().normalize());
-        if (angle < Math.PI / 3 || distToPlayer < 8) {
-          isSpotted = true;
+      if (enemyState === 'PATROL') {
+        if (distToPlayer < 18) {
+          const angle = enemyMoveDir.angleTo(vecToPlayer.clone().normalize());
+          if (angle < Math.PI / 3 || distToPlayer < 8) {
+            enemyState = 'CHASE';
+          }
         }
-      }
-
-      if (isSpotted) {
-        enemyState = 'CHASE';
-        statusUi.innerText = '⚠️ 状況: 見つかった！逃げろ！';
-        statusUi.style.color = '#ff3333';
-      } else if (distToPlayer > 28) {
-        enemyState = 'PATROL';
-        statusUi.innerText = '👁️ 状況: 徘徊中...';
-        statusUi.style.color = '#00ff00';
+      } else if (enemyState === 'CHASE') {
+        if (distToPlayer > 18) {
+          enemyState = 'PATROL';
+          getNewPatrolTarget();
+        }
       }
 
       if (enemyState === 'CHASE') {
@@ -394,19 +378,16 @@
         }
       }
 
-      // BGM音量
+      // 🔊 音量コントロール（追跡中のみ・15m以内で近づくほど音量アップ、最大音量は0.5に抑制）
       if (audioUnlocked) {
-        let targetVolume = 1 - (distToPlayer / 25);
-        bgm.volume = Math.max(0, Math.min(1, targetVolume));
-      }
-
-      // 赤明滅演出
-      if (enemyState === 'CHASE' && distToPlayer < 15) {
-        const dangerRatio = 1 - (distToPlayer / 15);
-        const flicker = 0.35 + 0.35 * Math.sin(now * 0.025);
-        dangerOverlay.style.background = `rgba(255, 0, 0, ${dangerRatio * flicker})`;
-      } else {
-        dangerOverlay.style.background = `rgba(255, 0, 0, 0)`;
+        if (enemyState === 'CHASE' && distToPlayer < 15) {
+          const maxVol = 0.5; // 最大音量（音デカすぎ防止）
+          let targetVolume = (1 - (distToPlayer / 15)) * maxVol;
+          bgm.volume = Math.max(0, Math.min(maxVol, targetVolume));
+        } else {
+          // 徘徊中または15m以上離れている時は一切聞こえない（完全無音）
+          bgm.volume = 0;
+        }
       }
 
       // 当たり判定
