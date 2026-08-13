@@ -45,6 +45,10 @@
       border: none; border-radius: 30px; font-weight: bold; cursor: pointer;
       box-shadow: 0 4px 15px rgba(255, 51, 51, 0.5); margin-top: 15px;
     }
+    #update-btn {
+      margin-top: 15px; font-size: 0.85rem; padding: 8px 16px; background: #333; color: #aaa;
+      border: 1px solid #555; border-radius: 15px; cursor: pointer;
+    }
 
     /* UI要素 */
     #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
@@ -90,6 +94,7 @@
       【スマホ操作】左画面ドラッグ: 移動 / 右画面ドラッグ: 視点
     </p>
     <button id="start-btn">🎮 ゲームスタート</button>
+    <button id="update-btn">🔄 最新版にアップデート（更新）</button>
   </div>
 
   <!-- ゲームプレイ中UI -->
@@ -122,6 +127,12 @@
     const bgm = new Audio('bgm.mp3');
     bgm.loop = true;
     const jumpScareVoice = new Audio('voice.mp3');
+
+    // 🔄 ホーム画面追加（PWA）の強制キャッシュ回避・アップデート処理
+    document.getElementById('update-btn').addEventListener('click', () => {
+      const now = new Date().getTime();
+      window.location.href = window.location.pathname + '?v=' + now;
+    });
 
     // 🔊 音声解除処理
     let audioCtx = null;
