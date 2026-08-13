@@ -257,7 +257,6 @@
     const ambientLight = new THREE.AmbientLight(0x222230, 0.15);
     scene.add(ambientLight);
 
-    // 懐中電灯（反射しすぎないよう白飛び防止調整）
     const flashLight = new THREE.SpotLight(0xfffae6, 18, 55, Math.PI / 3, 0.6, 1.8);
     camera.add(flashLight);
     flashLight.target.position.set(0, 0, -5);
@@ -309,7 +308,7 @@
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // 🧱 マップ外周の壁（外に出られないように設置）
+    // マップ外周の壁
     const outerWallMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 1.0 });
     const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(150, 8, 2), outerWallMat);
     wallNorth.position.set(0, 4, -75);
@@ -328,14 +327,12 @@
     road.position.y = 0.02;
     scene.add(road);
 
-    // ⛰️ 山・トンネル領域（Z = -55 周辺）
-    // 山体（トンネル上部の土手・山）
+    // 山・トンネル
     const mountainMat = new THREE.MeshStandardMaterial({ color: 0x0a1408, roughness: 1.0 });
     const mountainHill = new THREE.Mesh(new THREE.ConeGeometry(35, 16, 10), mountainMat);
     mountainHill.position.set(0, 7, -55);
     scene.add(mountainHill);
 
-    // トンネル（白飛びを防ぐ完全非光沢コンクリート素材＋深さ40mへ拡張）
     const tunnelGroup = new THREE.Group();
     tunnelGroup.position.set(0, 0, -55);
     const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 1.0, metalness: 0.0 });
@@ -352,7 +349,7 @@
     tunnelGroup.add(wallLeft, wallRight, roof, backWall);
     scene.add(tunnelGroup);
 
-    // PC（トンネルの最奥部 Z = -72）
+    // PC
     const pcGroup = new THREE.Group();
     pcGroup.position.set(0, 0.5, -72);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
@@ -418,10 +415,10 @@
       }
     }
 
-    // 敵（こくにい）
+    // 👾 敵（こくにい）: kokunii.PNG (大文字) に対応！
     const textureLoader = new THREE.TextureLoader();
-    const enemyTexture = textureLoader.load('kokunii.jpg');
-    const enemyMaterial = new THREE.SpriteMaterial({ map: enemyTexture });
+    const enemyTexture = textureLoader.load('kokunii.PNG');
+    const enemyMaterial = new THREE.SpriteMaterial({ map: enemyTexture, transparent: true });
     const enemy = new THREE.Sprite(enemyMaterial);
     enemy.scale.set(3.5, 3.5, 1);
     scene.add(enemy);
@@ -634,7 +631,7 @@
         }
       }
 
-      // 移動計算 ＋ 外壁との衝突判定（マップ外へ飛び出し防止）
+      // 移動計算 ＋ 外壁当たり判定
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
@@ -645,7 +642,6 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      // 🛑 外壁壁当たり判定（-72m 〜 72m の範囲に固定）
       camera.position.x = Math.max(-72, Math.min(72, camera.position.x));
       camera.position.z = Math.max(-72, Math.min(72, camera.position.z));
 
