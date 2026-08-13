@@ -128,7 +128,7 @@
     bgm.loop = true;
     const jumpScareVoice = new Audio('voice.mp3');
 
-    // 🔄 ホーム画面追加（PWA）の強制キャッシュ回避・アップデート処理
+    // 🔄 アップデートボタン処理
     document.getElementById('update-btn').addEventListener('click', () => {
       const now = new Date().getTime();
       window.location.href = window.location.pathname + '?v=' + now;
@@ -185,7 +185,7 @@
     const totalParts = 4;
     let noBatteryTime = 0;
 
-    // 💻 PC用キーボード状態管理
+    // キーボード状態管理
     const keys = {};
     window.addEventListener('keydown', (e) => {
       keys[e.code] = true;
@@ -239,7 +239,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // 💻 PC用マウスクリック視点ロック
+    // PC用マウスクリック視点ロック
     renderer.domElement.addEventListener('click', () => {
       if (isGameStarted && !isGameOver && !isGameClear && !('ontouchstart' in window)) {
         renderer.domElement.requestPointerLock();
@@ -254,15 +254,16 @@
     });
 
     // ライティング
-    const ambientLight = new THREE.AmbientLight(0x222230, 0.2);
+    const ambientLight = new THREE.AmbientLight(0x222230, 0.15);
     scene.add(ambientLight);
 
-    const flashLight = new THREE.SpotLight(0xfffae6, 22, 55, Math.PI / 3, 0.5, 1);
+    // 懐中電灯（反射しすぎないよう白飛び防止調整）
+    const flashLight = new THREE.SpotLight(0xfffae6, 18, 55, Math.PI / 3, 0.6, 1.8);
     camera.add(flashLight);
     flashLight.target.position.set(0, 0, -5);
     camera.add(flashLight.target);
 
-    const localLight = new THREE.PointLight(0xfffae6, 0.3, 6);
+    const localLight = new THREE.PointLight(0xfffae6, 0.15, 5);
     camera.add(localLight);
     scene.add(camera);
 
@@ -270,7 +271,7 @@
       isLightOn = on;
       flashLight.visible = on;
       localLight.visible = on;
-      ambientLight.intensity = on ? 0.2 : 0.02;
+      ambientLight.intensity = on ? 0.15 : 0.02;
       lightBtn.innerText = on ? 'ライト ON' : 'ライト OFF';
     }
 
@@ -308,33 +309,54 @@
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
+    // 🧱 マップ外周の壁（外に出られないように設置）
+    const outerWallMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 1.0 });
+    const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(150, 8, 2), outerWallMat);
+    wallNorth.position.set(0, 4, -75);
+    const wallSouth = new THREE.Mesh(new THREE.BoxGeometry(150, 8, 2), outerWallMat);
+    wallSouth.position.set(0, 4, 75);
+    const wallEast = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 150), outerWallMat);
+    wallEast.position.set(75, 4, 0);
+    const wallWest = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 150), outerWallMat);
+    wallWest.position.set(-75, 4, 0);
+    scene.add(wallNorth, wallSouth, wallEast, wallWest);
+
     // 公道
-    const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.8 });
+    const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.0 });
     const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 150), roadMat);
     road.rotation.x = -Math.PI / 2;
     road.position.y = 0.02;
     scene.add(road);
 
-    // トンネル
+    // ⛰️ 山・トンネル領域（Z = -55 周辺）
+    // 山体（トンネル上部の土手・山）
+    const mountainMat = new THREE.MeshStandardMaterial({ color: 0x0a1408, roughness: 1.0 });
+    const mountainHill = new THREE.Mesh(new THREE.ConeGeometry(35, 16, 10), mountainMat);
+    mountainHill.position.set(0, 7, -55);
+    scene.add(mountainHill);
+
+    // トンネル（白飛びを防ぐ完全非光沢コンクリート素材＋深さ40mへ拡張）
     const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0, -60);
-    const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.9 });
-    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 16), tunnelMat);
-    wallLeft.position.set(-5, 3, 0);
-    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 16), tunnelMat);
-    wallRight.position.set(5, 3, 0);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(12, 2, 16), tunnelMat);
-    roof.position.set(0, 6, 0);
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 2), tunnelMat);
-    backWall.position.set(0, 3, -8);
+    tunnelGroup.position.set(0, 0, -55);
+    const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 1.0, metalness: 0.0 });
+
+    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 36), tunnelMat);
+    wallLeft.position.set(-5, 3.5, 0);
+    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 36), tunnelMat);
+    wallRight.position.set(5, 3.5, 0);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(12, 2, 36), tunnelMat);
+    roof.position.set(0, 7, 0);
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 9, 2), tunnelMat);
+    backWall.position.set(0, 3.5, -18);
+
     tunnelGroup.add(wallLeft, wallRight, roof, backWall);
     scene.add(tunnelGroup);
 
-    // PC
+    // PC（トンネルの最奥部 Z = -72）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -67);
-    const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x332211 }));
-    const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x003344 }));
+    pcGroup.position.set(0, 0.5, -72);
+    const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
+    const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
     pcGroup.add(deskMesh, monitorMesh);
     scene.add(pcGroup);
@@ -356,7 +378,7 @@
       return tree;
     }
 
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 90; i++) {
       const tree = createTree();
       let x = (Math.random() - 0.5) * 130;
       let z = (Math.random() - 0.5) * 130;
@@ -389,7 +411,7 @@
       for (let i = 0; i < totalParts; i++) {
         const part = new THREE.Mesh(partGeo, partMat);
         let x = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 45);
-        let z = (Math.random() - 0.5) * 100;
+        let z = (Math.random() - 0.5) * 90;
         part.position.set(x, 0.3, z);
         scene.add(part);
         pcParts.push(part);
@@ -409,7 +431,7 @@
     let enemyMoveDir = new THREE.Vector3(0, 0, 1);
 
     function getNewPatrolTarget() {
-      patrolTarget.set((Math.random() - 0.5) * 110, 1.75, (Math.random() - 0.5) * 100);
+      patrolTarget.set((Math.random() - 0.5) * 110, 1.75, (Math.random() - 0.5) * 90);
     }
 
     let animationFrameId = null;
@@ -432,7 +454,7 @@
       spawnPCParts();
 
       enemyState = 'PATROL';
-      enemy.position.set(0, 1.75, -15);
+      enemy.position.set(0, 1.75, -10);
       getNewPatrolTarget();
 
       isGameOver = false;
@@ -519,7 +541,7 @@
       const delta = (now - lastTime) / 1000;
       lastTime = now;
 
-      // 💻 PCキーボード ＋ スマホタッチ操作統合
+      // キーボード ＋ タッチ入力統合
       let keyForward = 0;
       let keySide = 0;
       if (keys['KeyW'] || keys['ArrowUp']) keyForward += 1;
@@ -612,15 +634,20 @@
         }
       }
 
-      // プレイヤー移動計算
+      // 移動計算 ＋ 外壁との衝突判定（マップ外へ飛び出し防止）
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
       const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
+      
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
+
+      // 🛑 外壁壁当たり判定（-72m 〜 72m の範囲に固定）
+      camera.position.x = Math.max(-72, Math.min(72, camera.position.x));
+      camera.position.z = Math.max(-72, Math.min(72, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
