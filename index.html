@@ -11,7 +11,7 @@
   
   <title>恐怖の森 - こくにいVer.</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; }
     
     /* 縦画面時の警告カバー */
     #rotate-notice {
@@ -43,10 +43,17 @@
 
     /* UI要素 */
     #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
-    #battery-ui { margin-top: 8px; font-weight: bold; color: #ffff00; font-size: 1.1rem; }
+    #battery-ui { margin-top: 6px; font-weight: bold; color: #ffff00; font-size: 1rem; }
+    #stamina-ui { margin-top: 4px; font-weight: bold; color: #00ffff; font-size: 1rem; }
 
-    /* 懐中電灯ON/OFFボタン */
-    #light-btn { position: absolute; top: 15px; right: 15px; z-index: 15; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; display: none; }
+    /* 操作ボタン */
+    .game-btn {
+      position: absolute; z-index: 50; border: none; border-radius: 30px;
+      font-weight: bold; cursor: pointer; display: none;
+      user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    }
+    #light-btn { top: 15px; right: 15px; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; }
+    #dash-btn { bottom: 25px; right: 25px; padding: 16px 28px; font-size: 1.1rem; background: rgba(255, 140, 0, 0.85); color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
 
     /* ゲームオーバー画面 */
     #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 150; text-align: center; }
@@ -72,13 +79,14 @@
 
   <!-- ゲームプレイ中UI -->
   <div id="ui">
-    <h2 style="margin:0; font-size:1.2rem;">こくにいから逃げろ！</h2>
-    <p style="margin:4px 0 0; font-size:0.75rem; opacity:0.8;">左画面ドラッグ：移動 / 右画面ドラッグ：視点</p>
+    <h2 style="margin:0; font-size:1.1rem;">こくにいから逃げろ！</h2>
     <div id="battery-ui">⚡ バッテリー: <span id="battery-val">100</span>%</div>
-    <div id="warning-text" style="color:#ff3333; font-weight:bold; margin-top:5px; display:none; font-size:0.9rem;"></div>
+    <div id="stamina-ui">🏃 スタミナ: <span id="stamina-val">100</span>%</div>
+    <div id="warning-text" style="color:#ff3333; font-weight:bold; margin-top:5px; display:none; font-size:0.85rem;"></div>
   </div>
 
-  <button id="light-btn">ライト ON</button>
+  <button id="light-btn" class="game-btn">ライト ON</button>
+  <button id="dash-btn" class="game-btn">🏃 走る</button>
 
   <!-- ゲームオーバー画面 -->
   <div id="game-over">
@@ -97,38 +105,22 @@
     const startBtn = document.getElementById('start-btn');
     const retryBtn = document.getElementById('retry-btn');
     const lightBtn = document.getElementById('light-btn');
+    const dashBtn = document.getElementById('dash-btn');
     const batteryValEl = document.getElementById('battery-val');
+    const staminaValEl = document.getElementById('stamina-val');
     const warningText = document.getElementById('warning-text');
 
     let isGameStarted = false;
     let isGameOver = false;
     let isLightOn = true;
+    let isDashing = false;
     let battery = 100;
+    let stamina = 100;
     let noBatteryTime = 0;
-
-    // ライトON/OFF切替
-    lightBtn.addEventListener('click', () => {
-      if (battery > 0 && isGameStarted && !isGameOver) {
-        isLightOn = !isLightOn;
-        lightBtn.innerText = isLightOn ? 'ライト ON' : 'ライト OFF';
-        flashLight.visible = isLightOn;
-        localLight.visible = isLightOn;
-      }
-    });
-
-    // スタートボタンタップで開始
-    startBtn.addEventListener('click', () => {
-      initAndStartGame();
-    });
-
-    // リトライボタンタップで再スタート
-    retryBtn.addEventListener('click', () => {
-      initAndStartGame();
-    });
 
     // 3D空間初期構築
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a0a0c, 0.06);
+    scene.fog = new THREE.FogExp2(0x050508, 0.05); // マップ拡大にともない霧の密度を調整
 
     const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -137,47 +129,85 @@
     document.body.appendChild(renderer.domElement);
 
     // 環境光＆ライト
-    const ambientLight = new THREE.AmbientLight(0x333338);
+    const ambientLight = new THREE.AmbientLight(0x22222a, 0.3);
     scene.add(ambientLight);
 
-    const flashLight = new THREE.SpotLight(0xffffff, 12, 45, Math.PI / 3.5, 0.4, 1);
+    const flashLight = new THREE.SpotLight(0xffffff, 20, 60, Math.PI / 4, 0.3, 1);
     camera.add(flashLight);
     flashLight.target.position.set(0, 0, -1);
     camera.add(flashLight.target);
 
-    const localLight = new THREE.PointLight(0xffffff, 2.5, 10);
+    const localLight = new THREE.PointLight(0xffffff, 2, 10);
     camera.add(localLight);
     scene.add(camera);
 
-    // 地面
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(120, 120),
-      new THREE.MeshBasicMaterial({ color: 0x222226 })
-    );
+    function setLightState(on) {
+      isLightOn = on;
+      flashLight.visible = on;
+      localLight.visible = on;
+      ambientLight.intensity = on ? 0.3 : 0.03;
+      lightBtn.innerText = on ? 'ライト ON' : 'ライト OFF';
+    }
+
+    // ボタン切り替えイベントハンドラー
+    function toggleLight(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      if (battery > 0 && isGameStarted && !isGameOver) {
+        setLightState(!isLightOn);
+      }
+    }
+    lightBtn.addEventListener('touchstart', toggleLight, { passive: false });
+    lightBtn.addEventListener('mousedown', toggleLight);
+
+    // ダッシュボタン処理
+    function startDash(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      if (isGameStarted && !isGameOver && stamina > 0) {
+        isDashing = true;
+      }
+    }
+    function stopDash(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      isDashing = false;
+    }
+
+    dashBtn.addEventListener('touchstart', startDash, { passive: false });
+    dashBtn.addEventListener('touchend', stopDash, { passive: false });
+    dashBtn.addEventListener('touchcancel', stopDash, { passive: false });
+    dashBtn.addEventListener('mousedown', startDash);
+    dashBtn.addEventListener('mouseup', stopDash);
+    dashBtn.addEventListener('mouseleave', stopDash);
+
+    startBtn.addEventListener('click', () => { initAndStartGame(); });
+    retryBtn.addEventListener('click', () => { initAndStartGame(); });
+
+    // 🗺️ 広大化された地面 (300 x 300)
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.9 });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // 木
+    // 🌲 木の配置量アップ (180本)
     const treeGeo = new THREE.CylinderGeometry(0.2, 0.5, 5, 6);
-    const treeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-    for (let i = 0; i < 60; i++) {
+    const treeMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.8 });
+    for (let i = 0; i < 180; i++) {
       const tree = new THREE.Mesh(treeGeo, treeMat);
-      tree.position.set((Math.random() - 0.5) * 90, 2.5, (Math.random() - 0.5) * 90);
-      if (tree.position.distanceTo(camera.position) > 6) scene.add(tree);
+      tree.position.set((Math.random() - 0.5) * 260, 2.5, (Math.random() - 0.5) * 260);
+      if (tree.position.distanceTo(camera.position) > 8) scene.add(tree);
     }
 
-    // バッテリーアイテム
+    // 🔋 バッテリーアイテム (10個配置)
     const batteries = [];
     const battGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
-    const battMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const battMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x666600 });
 
     function spawnBattery() {
       const batt = new THREE.Mesh(battGeo, battMat);
-      batt.position.set((Math.random() - 0.5) * 75, 0.3, (Math.random() - 0.5) * 75);
+      batt.position.set((Math.random() - 0.5) * 240, 0.3, (Math.random() - 0.5) * 240);
       scene.add(batt);
       batteries.push(batt);
     }
-    for (let i = 0; i < 5; i++) spawnBattery();
+    for (let i = 0; i < 10; i++) spawnBattery();
 
     // 敵（こくにい）
     const textureLoader = new THREE.TextureLoader();
@@ -192,10 +222,9 @@
     let enemyMoveDir = new THREE.Vector3(0, 0, 1);
 
     function getNewPatrolTarget() {
-      patrolTarget.set((Math.random() - 0.5) * 80, 1.75, (Math.random() - 0.5) * 80);
+      patrolTarget.set((Math.random() - 0.5) * 240, 1.75, (Math.random() - 0.5) * 240);
     }
 
-    // ゲーム開始・再スタート処理
     let animationFrameId = null;
     let lastTime = 0;
 
@@ -204,9 +233,9 @@
       cameraRotation = { yaw: 0, pitch: 0 };
       
       battery = 100;
-      isLightOn = true;
-      flashLight.visible = true;
-      localLight.visible = true;
+      stamina = 100;
+      isDashing = false;
+      setLightState(true);
       noBatteryTime = 0;
       
       enemyState = 'PATROL';
@@ -220,7 +249,7 @@
       document.getElementById('game-over').style.display = 'none';
       document.getElementById('ui').style.display = 'block';
       lightBtn.style.display = 'block';
-      lightBtn.innerText = 'ライト ON';
+      dashBtn.style.display = 'block';
 
       bgm.currentTime = 0;
       bgm.volume = 0;
@@ -231,7 +260,7 @@
       animate();
     }
 
-    // タッチ操作制御（ボタンエリア除外）
+    // タッチ操作制御
     let moveTouchId = null, lookTouchId = null;
     let moveStart = { x: 0, y: 0 }, lookStart = { x: 0, y: 0 };
     let moveDir = { forward: 0, side: 0 };
@@ -240,7 +269,9 @@
     window.addEventListener('touchstart', (e) => {
       if (!isGameStarted || isGameOver) return;
       for (let touch of e.changedTouches) {
-        if (touch.target.tagName === 'BUTTON') continue;
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (targetEl && (targetEl.tagName === 'BUTTON' || targetEl.closest('button'))) continue;
+
         if (touch.clientX < window.innerWidth / 2 && moveTouchId === null) {
           moveTouchId = touch.identifier;
           moveStart = { x: touch.clientX, y: touch.clientY };
@@ -274,9 +305,11 @@
     window.addEventListener('touchend', endTouch);
     window.addEventListener('touchcancel', endTouch);
 
-    const playerSpeed = 0.07;
-    const chaseSpeed = 0.055;
-    const patrolSpeed = 0.025;
+    // ⚙️ 速度設定（歩きよりこくにいを少し速く！）
+    const normalSpeed = 0.07;   // プレイヤー（歩き）
+    const dashSpeed = 0.12;     // プレイヤー（ダッシュ）
+    const chaseSpeed = 0.078;   // こくにい追跡（歩きより速い！要ダッシュ）
+    const patrolSpeed = 0.035;   // こくにい徘徊
 
     function animate() {
       if (!isGameStarted || isGameOver) return;
@@ -286,18 +319,35 @@
       const delta = (now - lastTime) / 1000;
       lastTime = now;
 
-      // バッテリー消費（5秒に1%減）
+      // バッテリー消費
       if (isLightOn && battery > 0) {
         battery -= delta * 0.2;
         if (battery <= 0) {
           battery = 0;
-          isLightOn = false;
-          flashLight.visible = false;
-          localLight.visible = false;
+          setLightState(false);
           lightBtn.innerText = 'ライト 0%';
         }
       }
       batteryValEl.innerText = Math.ceil(battery);
+
+      // スタミナ＆ダッシュ制御
+      const isMoving = (moveDir.forward !== 0 || moveDir.side !== 0);
+      let currentSpeed = normalSpeed;
+
+      if (isDashing && stamina > 0 && isMoving) {
+        currentSpeed = dashSpeed;
+        stamina -= delta * 25;
+        if (stamina <= 0) {
+          stamina = 0;
+          isDashing = false;
+        }
+      } else {
+        if (stamina < 100) {
+          stamina += delta * 15;
+          if (stamina > 100) stamina = 100;
+        }
+      }
+      staminaValEl.innerText = Math.ceil(stamina);
 
       // 暗闇ペナルティ（5秒で急襲）
       if (battery <= 0) {
@@ -323,10 +373,7 @@
         batt.rotation.y += delta * 2;
         if (camera.position.distanceTo(batt.position) < 1.5) {
           battery = 100;
-          isLightOn = true;
-          flashLight.visible = true;
-          localLight.visible = true;
-          lightBtn.innerText = 'ライト ON';
+          setLightState(true);
           scene.remove(batt);
           batteries.splice(i, 1);
           spawnBattery();
@@ -340,8 +387,8 @@
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
       const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
-      camera.position.addScaledVector(forward, moveDir.forward * playerSpeed);
-      camera.position.addScaledVector(side, moveDir.side * playerSpeed);
+      camera.position.addScaledVector(forward, moveDir.forward * currentSpeed);
+      camera.position.addScaledVector(side, moveDir.side * currentSpeed);
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
@@ -349,14 +396,14 @@
       const distToPlayer = vecToPlayer.length();
 
       if (enemyState === 'PATROL') {
-        if (distToPlayer < 18) {
+        if (distToPlayer < 20) {
           const angle = enemyMoveDir.angleTo(vecToPlayer.clone().normalize());
           if (angle < Math.PI / 3 || distToPlayer < 8) {
             enemyState = 'CHASE';
           }
         }
       } else if (enemyState === 'CHASE') {
-        if (distToPlayer > 18) {
+        if (distToPlayer > 22) { // 広大化に伴い追尾解除距離を少し微調整
           enemyState = 'PATROL';
           getNewPatrolTarget();
         }
@@ -378,14 +425,13 @@
         }
       }
 
-      // 🔊 音量コントロール（追跡中のみ・15m以内で近づくほど音量アップ、最大音量は0.5に抑制）
+      // 🔊 音量コントロール
       if (audioUnlocked) {
-        if (enemyState === 'CHASE' && distToPlayer < 15) {
-          const maxVol = 0.5; // 最大音量（音デカすぎ防止）
-          let targetVolume = (1 - (distToPlayer / 15)) * maxVol;
+        if (enemyState === 'CHASE' && distToPlayer < 18) {
+          const maxVol = 0.5;
+          let targetVolume = (1 - (distToPlayer / 18)) * maxVol;
           bgm.volume = Math.max(0, Math.min(maxVol, targetVolume));
         } else {
-          // 徘徊中または15m以上離れている時は一切聞こえない（完全無音）
           bgm.volume = 0;
         }
       }
@@ -404,6 +450,8 @@
       jumpScareVoice.play();
       document.getElementById('death-reason').innerText = reason;
       document.getElementById('game-over').style.display = 'flex';
+      lightBtn.style.display = 'none';
+      dashBtn.style.display = 'none';
     }
 
     window.addEventListener('resize', () => {
