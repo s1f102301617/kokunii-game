@@ -40,6 +40,8 @@
       z-index: 100; text-align: center;
     }
     #start-screen h1 { font-size: 2rem; color: #ff3333; margin: 0 0 10px; text-shadow: 0 0 10px #ff0000; }
+    .version-tag { font-size: 0.85rem; color: #888; font-weight: normal; margin-left: 6px; vertical-align: middle; }
+    
     #start-btn {
       font-size: 1.3rem; padding: 16px 36px; background: #ff3333; color: #fff;
       border: none; border-radius: 30px; font-weight: bold; cursor: pointer;
@@ -90,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにい避難指示</h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.2.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -137,7 +139,7 @@
     bgm.loop = true;
     const jumpScareVoice = new Audio('voice.mp3');
 
-    // 🔄 アップアップデートボタン処理
+    // 🔄 アップデートボタン処理
     document.getElementById('update-btn').addEventListener('click', () => {
       const now = new Date().getTime();
       window.location.href = window.location.pathname + '?v=' + now;
@@ -266,30 +268,6 @@
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(1, 10);
-      return tex;
-    }
-
-    // 🧱 自然なコンクリート質感（目地模様を消してリアルな石質感に）
-    function createConcreteTexture() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 512; canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#222225'; ctx.fillRect(0,0,512,512);
-      for(let i=0; i<20000; i++) {
-        const v = Math.floor(Math.random() * 40);
-        ctx.fillStyle = `rgba(${v},${v},${v},0.12)`;
-        ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
-      }
-      ctx.fillStyle = 'rgba(10, 10, 12, 0.3)';
-      for(let i=0; i<25; i++) {
-        const x = Math.random() * 512;
-        const w = 20 + Math.random() * 40;
-        ctx.fillRect(x, Math.random() * 100, w, 200 + Math.random() * 300);
-      }
-
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(1, 2);
       return tex;
     }
 
@@ -463,24 +441,28 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山の岩肌斜面（トンネル中央の穴 X: -8 〜 8 を塞がないよう左右と上に分散配置）
-    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x111c0f, roughness: 1.0 });
+    // ⛰️ 山の岩肌斜面
+    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
 
-    const mountainLeft = new THREE.Mesh(new THREE.BoxGeometry(70, 30, 30), cliffMat);
-    mountainLeft.position.set(-42, 12, -70);
+    const mountainLeft = new THREE.Mesh(new THREE.BoxGeometry(70, 25, 20), cliffMat);
+    mountainLeft.position.set(-40, 10, -56);
     scene.add(mountainLeft);
 
-    const mountainRight = new THREE.Mesh(new THREE.BoxGeometry(70, 30, 30), cliffMat);
-    mountainRight.position.set(42, 12, -70);
+    const mountainRight = new THREE.Mesh(new THREE.BoxGeometry(70, 25, 20), cliffMat);
+    mountainRight.position.set(40, 10, -56);
     scene.add(mountainRight);
 
-    const mountainTop = new THREE.Mesh(new THREE.BoxGeometry(160, 20, 30), cliffMat);
-    mountainTop.position.set(0, 20, -70);
+    const mountainTop = new THREE.Mesh(new THREE.BoxGeometry(150, 18, 20), cliffMat);
+    mountainTop.position.set(0, 18, -56);
     scene.add(mountainTop);
 
-    // 🚇 トンネル構造（穴が絶対に埋まらない設計）
-    const concreteTex = createConcreteTexture();
-    const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.95, side: THREE.DoubleSide });
+    // 🚇 トンネル構造
+    const darkTunnelMat = new THREE.MeshStandardMaterial({ 
+      color: 0x121215, 
+      roughness: 1.0, 
+      metalness: 0.0,
+      side: THREE.DoubleSide 
+    });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8, side: THREE.DoubleSide });
 
@@ -489,15 +471,15 @@
 
     const portalTop = new THREE.Mesh(new THREE.BoxGeometry(16, 2.5, 2), warningMat);
     portalTop.position.set(0, 6.5, 0);
-    const portalLeftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), concreteMat);
+    const portalLeftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), darkTunnelMat);
     portalLeftWall.position.set(-6.75, 3.5, 0);
-    const portalRightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), concreteMat);
+    const portalRightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), darkTunnelMat);
     portalRightWall.position.set(6.75, 3.5, 0);
 
-    const wingLeft = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), concreteMat);
+    const wingLeft = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), darkTunnelMat);
     wingLeft.position.set(-12, 3, 2);
     wingLeft.rotation.y = Math.PI / 8;
-    const wingRight = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), concreteMat);
+    const wingRight = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), darkTunnelMat);
     wingRight.position.set(12, 3, 2);
     wingRight.rotation.y = -Math.PI / 8;
 
@@ -507,17 +489,22 @@
     const tunnelGroup = new THREE.Group();
     tunnelGroup.position.set(0, 0, -53);
 
-    const archGeo = new THREE.CylinderGeometry(5.8, 5.8, 32, 24, 1, true, 0, Math.PI);
-    const archMesh = new THREE.Mesh(archGeo, concreteMat);
+    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 32), darkTunnelMat);
+    wallL.position.set(-5.5, 3, -16);
+    
+    const wallR = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 32), darkTunnelMat);
+    wallR.position.set(5.5, 3, -16);
+
+    const archGeo = new THREE.CylinderGeometry(5.5, 5.8, 32, 16, 1, true, 0, Math.PI);
+    const archMesh = new THREE.Mesh(archGeo, darkTunnelMat);
     archMesh.rotation.z = Math.PI / 2;
     archMesh.rotation.y = Math.PI / 2;
-    archMesh.position.set(0, 3.8, -16);
-    tunnelGroup.add(archMesh);
+    archMesh.position.set(0, 4.5, -16);
 
-    const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 1), concreteMat);
-    inBack.position.set(0, 3.5, -32);
-    tunnelGroup.add(inBack);
+    const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 10, 1), darkTunnelMat);
+    inBack.position.set(0, 4, -32);
 
+    tunnelGroup.add(wallL, wallR, archMesh, inBack);
     scene.add(tunnelGroup);
 
     // 🚨 非常灯
