@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.2.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v1.3.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -271,6 +271,22 @@
       return tex;
     }
 
+    function createConcreteTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1a1a1e'; ctx.fillRect(0,0,256,256);
+      for(let i=0; i<8000; i++) {
+        const v = Math.floor(Math.random() * 25);
+        ctx.fillStyle = `rgba(${v},${v},${v},0.2)`;
+        ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, 6);
+      return tex;
+    }
+
     function createWarningTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 128;
@@ -441,89 +457,62 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山の岩肌斜面
+    // ⛰️ 山の斜面（トンネル入口 Z=-50 より完全に「後ろ（Z=-62）」に配置し食い込み防止）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
 
-    const mountainLeft = new THREE.Mesh(new THREE.BoxGeometry(70, 25, 20), cliffMat);
-    mountainLeft.position.set(-40, 10, -56);
-    scene.add(mountainLeft);
+    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(160, 35, 20), cliffMat);
+    mountainWall.position.set(0, 15, -68);
+    scene.add(mountainWall);
 
-    const mountainRight = new THREE.Mesh(new THREE.BoxGeometry(70, 25, 20), cliffMat);
-    mountainRight.position.set(40, 10, -56);
-    scene.add(mountainRight);
-
-    const mountainTop = new THREE.Mesh(new THREE.BoxGeometry(150, 18, 20), cliffMat);
-    mountainTop.position.set(0, 18, -56);
-    scene.add(mountainTop);
-
-    // 🚇 トンネル構造
-    const darkTunnelMat = new THREE.MeshStandardMaterial({ 
-      color: 0x121215, 
-      roughness: 1.0, 
-      metalness: 0.0,
-      side: THREE.DoubleSide 
-    });
+    // 🚇 完全密閉の洞窟トンネル構造 (Z = -50 から Z = -82 へ伸びる)
+    const concreteTex = createConcreteTexture();
+    const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
-    const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8, side: THREE.DoubleSide });
+    const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
+    // トンネル構造体（BOX反転による完全密閉空間）
+    const tunnelGeo = new THREE.BoxGeometry(10, 7, 32);
+    // 内側のみ描画にしてカメラが入っても透けない
+    const tunnelInsideMat = new THREE.MeshStandardMaterial({ 
+      map: concreteTex, 
+      roughness: 0.95, 
+      side: THREE.BackSide 
+    });
+    const tunnelMesh = new THREE.Mesh(tunnelGeo, tunnelInsideMat);
+    tunnelMesh.position.set(0, 3.5, -66);
+    scene.add(tunnelMesh);
+
+    // 入口ポータル（立体的なアーチ看板枠）
     const portalGroup = new THREE.Group();
-    portalGroup.position.set(0, 0, -52);
+    portalGroup.position.set(0, 0, -50);
 
-    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(16, 2.5, 2), warningMat);
-    portalTop.position.set(0, 6.5, 0);
-    const portalLeftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), darkTunnelMat);
-    portalLeftWall.position.set(-6.75, 3.5, 0);
-    const portalRightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 7, 2), darkTunnelMat);
-    portalRightWall.position.set(6.75, 3.5, 0);
+    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(14, 2.5, 1.5), warningMat);
+    portalTop.position.set(0, 6.25, 0);
+    const portalL = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 1.5), concreteMat);
+    portalL.position.set(-6, 3.5, 0);
+    const portalR = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 1.5), concreteMat);
+    portalR.position.set(6, 3.5, 0);
 
-    const wingLeft = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), darkTunnelMat);
-    wingLeft.position.set(-12, 3, 2);
-    wingLeft.rotation.y = Math.PI / 8;
-    const wingRight = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 1.5), darkTunnelMat);
-    wingRight.position.set(12, 3, 2);
-    wingRight.rotation.y = -Math.PI / 8;
-
-    portalGroup.add(portalTop, portalLeftWall, portalRightWall, wingLeft, wingRight);
+    portalGroup.add(portalTop, portalL, portalR);
     scene.add(portalGroup);
 
-    const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0, -53);
-
-    const wallL = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 32), darkTunnelMat);
-    wallL.position.set(-5.5, 3, -16);
-    
-    const wallR = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 32), darkTunnelMat);
-    wallR.position.set(5.5, 3, -16);
-
-    const archGeo = new THREE.CylinderGeometry(5.5, 5.8, 32, 16, 1, true, 0, Math.PI);
-    const archMesh = new THREE.Mesh(archGeo, darkTunnelMat);
-    archMesh.rotation.z = Math.PI / 2;
-    archMesh.rotation.y = Math.PI / 2;
-    archMesh.position.set(0, 4.5, -16);
-
-    const inBack = new THREE.Mesh(new THREE.BoxGeometry(12, 10, 1), darkTunnelMat);
-    inBack.position.set(0, 4, -32);
-
-    tunnelGroup.add(wallL, wallR, archMesh, inBack);
-    scene.add(tunnelGroup);
-
     // 🚨 非常灯
-    for (let zPos of [-60, -70, -80]) {
+    for (let zPos of [-58, -68, -78]) {
       const lampMesh = new THREE.Mesh(
         new THREE.BoxGeometry(0.3, 0.4, 0.2),
         new THREE.MeshBasicMaterial({ color: 0xff6600 })
       );
-      lampMesh.position.set(-5.3, 4.5, zPos);
+      lampMesh.position.set(-4.8, 4.5, zPos);
       scene.add(lampMesh);
 
       const lampLight = new THREE.PointLight(0xff6600, 1.5, 12);
-      lampLight.position.set(-4.8, 4.5, zPos);
+      lampLight.position.set(-4.3, 4.5, zPos);
       scene.add(lampLight);
     }
 
-    // PC（トンネル最奥部 Z = -82）
+    // PC（トンネル最奥部 Z = -80）
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -82);
+    pcGroup.position.set(0, 0.5, -80);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x002233 }));
     monitorMesh.position.set(0, 0.8, 0);
@@ -821,12 +810,13 @@
         }
       }
 
-      // 移動計算 ＋ 衝突判定
+      // 🚶 物理衝突判定（移動計算）
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
 
       const oldX = camera.position.x;
+      const oldZ = camera.position.z;
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
       const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
@@ -834,7 +824,7 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      // 1. 木との衝突
+      // 🛑 1. 木との衝突
       for (let t of treeColliders) {
         const dx = camera.position.x - t.x;
         const dz = camera.position.z - t.z;
@@ -850,7 +840,7 @@
         }
       }
 
-      // 2. ガードレールとの衝突
+      // 🛑 2. ガードレールとの衝突
       if (camera.position.z < 60 && camera.position.z > -50) {
         const inGap = isInsideGap(camera.position.z);
         if (!inGap) {
@@ -863,9 +853,23 @@
         }
       }
 
+      // 🛑 3. 🚇 トンネルの壁との物理衝突判定（すり抜け防止）
+      if (camera.position.z <= -50) {
+        // トンネル内部（X: -4.5 〜 4.5）にいる場合
+        if (camera.position.x > -4.5 && camera.position.x < 4.5) {
+          // 奥の突き当り壁
+          if (camera.position.z < -80) camera.position.z = -80;
+        } else {
+          // 入口（Z = -50）より奥へは、内部（X: -4.5〜4.5）からしか入れない（側面壁でブロック）
+          if (oldZ > -50) camera.position.z = -50;
+          if (oldX <= -4.5 && camera.position.x > -4.5) camera.position.x = -4.5;
+          if (oldX >= 4.5 && camera.position.x < 4.5) camera.position.x = 4.5;
+        }
+      }
+
       // マップ外周境界
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-82, Math.min(64, camera.position.z));
+      camera.position.z = Math.max(-80, Math.min(64, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
