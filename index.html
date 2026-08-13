@@ -18,7 +18,7 @@
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; }
     
-    /* 縦画面時の警告カバー */
+    /* 縦画面時の警告カバー（スマホ用） */
     #rotate-notice {
       display: none;
       position: absolute;
@@ -28,7 +28,7 @@
       flex-direction: column; justify-content: center; align-items: center;
       text-align: center; padding: 20px; box-sizing: border-box;
     }
-    @media (orientation: portrait) {
+    @media (orientation: portrait) and (max-width: 768px) {
       #rotate-notice { display: flex; }
     }
 
@@ -74,7 +74,7 @@
 </head>
 <body>
 
-  <!-- 縦画面時案内 -->
+  <!-- 縦画面時案内（スマホ用） -->
   <div id="rotate-notice">
     <div style="font-size: 3.5rem; margin-bottom: 15px;">📱↪️</div>
     <h2 style="margin: 0 0 10px;">画面を横向きにしてください</h2>
@@ -84,7 +84,11 @@
   <!-- スタート画面 -->
   <div id="start-screen">
     <h1>恐怖の森 - こくにい避難指示</h1>
-    <p style="margin: 0 0 10px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。横画面でお楽しみください。</p>
+    <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
+    <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
+      【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
+      【スマホ操作】左画面ドラッグ: 移動 / 右画面ドラッグ: 視点
+    </p>
     <button id="start-btn">🎮 ゲームスタート</button>
   </div>
 
@@ -119,16 +123,17 @@
     bgm.loop = true;
     const jumpScareVoice = new Audio('voice.mp3');
 
-    // 🔊 Web Audio（初回のみ構築）
+    // 🔊 音声解除処理
     let audioCtx = null;
     let bgmGainNode = null;
     let bgmSourceNode = null;
 
-    function setupWebAudio() {
+    function unlockAudio() {
       if (!audioCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
         bgmGainNode = audioCtx.createGain();
+        bgmGainNode.gain.value = 0;
         bgmSourceNode = audioCtx.createMediaElementSource(bgm);
         bgmSourceNode.connect(bgmGainNode);
         bgmGainNode.connect(audioCtx.destination);
@@ -136,6 +141,16 @@
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
+
+      bgm.play().then(() => {
+        bgm.pause();
+        bgm.currentTime = 0;
+      }).catch(e => console.log(e));
+
+      jumpScareVoice.play().then(() => {
+        jumpScareVoice.pause();
+        jumpScareVoice.currentTime = 0;
+      }).catch(e => console.log(e));
     }
 
     const startBtn = document.getElementById('start-btn');
@@ -159,7 +174,21 @@
     const totalParts = 4;
     let noBatteryTime = 0;
 
-    // --- 🎨 動的テクスチャ生成 ---
+    // 💻 PC用キーボード状態管理
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (e.code === 'KeyF') {
+        if (battery > 0 && isGameStarted && !isGameOver && !isGameClear) {
+          setLightState(!isLightOn);
+        }
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    // 動的テクスチャ
     function createGrassTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = 256;
@@ -171,7 +200,7 @@
       }
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(40, 40);
+      tex.repeat.set(20, 20);
       return tex;
     }
 
@@ -185,13 +214,13 @@
       ctx.fillRect(60, 150, 8, 80);
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(1, 30);
+      tex.repeat.set(1, 15);
       return tex;
     }
 
     // 3D空間構築
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x050508, 0.035); // 霧を薄くして視界を改善
+    scene.fog = new THREE.FogExp2(0x050508, 0.04);
 
     const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -199,14 +228,27 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
+    // 💻 PC用マウスクリック視点ロック
+    renderer.domElement.addEventListener('click', () => {
+      if (isGameStarted && !isGameOver && !isGameClear && !('ontouchstart' in window)) {
+        renderer.domElement.requestPointerLock();
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (document.pointerLockElement === renderer.domElement) {
+        cameraRotation.yaw -= e.movementX * 0.0025;
+        cameraRotation.pitch = Math.max(-1.2, Math.min(1.2, cameraRotation.pitch - e.movementY * 0.0025));
+      }
+    });
+
     // ライティング
     const ambientLight = new THREE.AmbientLight(0x222230, 0.2);
     scene.add(ambientLight);
 
-    // 💡 自然な広角懐中電灯（照射範囲を前方に広く拡散）
-    const flashLight = new THREE.SpotLight(0xfffae6, 22, 65, Math.PI / 3, 0.5, 1);
+    const flashLight = new THREE.SpotLight(0xfffae6, 22, 55, Math.PI / 3, 0.5, 1);
     camera.add(flashLight);
-    flashLight.target.position.set(0, 0, -5); // しっかり遠くの前方を照らす
+    flashLight.target.position.set(0, 0, -5);
     camera.add(flashLight.target);
 
     const localLight = new THREE.PointLight(0xfffae6, 0.3, 6);
@@ -245,41 +287,41 @@
     dashBtn.addEventListener('mousedown', startDash);
     dashBtn.addEventListener('mouseup', stopDash);
 
-    startBtn.addEventListener('click', () => { initAndStartGame(); });
-    retryBtn.addEventListener('click', () => { initAndStartGame(); });
-    clearRetryBtn.addEventListener('click', () => { initAndStartGame(); });
+    startBtn.addEventListener('click', () => { unlockAudio(); initAndStartGame(); });
+    retryBtn.addEventListener('click', () => { unlockAudio(); initAndStartGame(); });
+    clearRetryBtn.addEventListener('click', () => { unlockAudio(); initAndStartGame(); });
 
-    // 地面
+    // 地面 (150x150)
     const groundMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.95 });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), groundMat);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
     // 公道
     const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.8 });
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 300), roadMat);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 150), roadMat);
     road.rotation.x = -Math.PI / 2;
     road.position.y = 0.02;
     scene.add(road);
 
     // トンネル
     const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0, -140);
+    tunnelGroup.position.set(0, 0, -60);
     const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.9 });
-    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 20), tunnelMat);
-    wallLeft.position.set(-6, 3, 0);
-    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 20), tunnelMat);
-    wallRight.position.set(6, 3, 0);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(14, 2, 20), tunnelMat);
+    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 16), tunnelMat);
+    wallLeft.position.set(-5, 3, 0);
+    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 16), tunnelMat);
+    wallRight.position.set(5, 3, 0);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(12, 2, 16), tunnelMat);
     roof.position.set(0, 6, 0);
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 2), tunnelMat);
-    backWall.position.set(0, 3, -10);
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 2), tunnelMat);
+    backWall.position.set(0, 3, -8);
     tunnelGroup.add(wallLeft, wallRight, roof, backWall);
     scene.add(tunnelGroup);
 
     // PC
     const pcGroup = new THREE.Group();
-    pcGroup.position.set(0, 0.5, -147);
+    pcGroup.position.set(0, 0.5, -67);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x332211 }));
     const monitorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x003344 }));
     monitorMesh.position.set(0, 0.8, 0);
@@ -303,13 +345,13 @@
       return tree;
     }
 
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 100; i++) {
       const tree = createTree();
-      let x = (Math.random() - 0.5) * 260;
-      let z = (Math.random() - 0.5) * 260;
-      if (Math.abs(x) < 9) x += (x >= 0 ? 10 : -10);
+      let x = (Math.random() - 0.5) * 130;
+      let z = (Math.random() - 0.5) * 130;
+      if (Math.abs(x) < 7) x += (x >= 0 ? 8 : -8);
       tree.position.set(x, 0, z);
-      if (tree.position.distanceTo(camera.position) > 8) scene.add(tree);
+      if (tree.position.distanceTo(camera.position) > 6) scene.add(tree);
     }
 
     // バッテリー
@@ -319,13 +361,13 @@
 
     function spawnBattery() {
       const batt = new THREE.Mesh(battGeo, battMat);
-      let x = (Math.random() - 0.5) * 240;
-      let z = (Math.random() - 0.5) * 240;
+      let x = (Math.random() - 0.5) * 110;
+      let z = (Math.random() - 0.5) * 110;
       batt.position.set(x, 0.3, z);
       scene.add(batt);
       batteries.push(batt);
     }
-    for (let i = 0; i < 10; i++) spawnBattery();
+    for (let i = 0; i < 8; i++) spawnBattery();
 
     // PCパーツ
     const pcParts = [];
@@ -335,8 +377,8 @@
     function spawnPCParts() {
       for (let i = 0; i < totalParts; i++) {
         const part = new THREE.Mesh(partGeo, partMat);
-        let x = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 80);
-        let z = (Math.random() - 0.5) * 220;
+        let x = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 45);
+        let z = (Math.random() - 0.5) * 100;
         part.position.set(x, 0.3, z);
         scene.add(part);
         pcParts.push(part);
@@ -356,16 +398,14 @@
     let enemyMoveDir = new THREE.Vector3(0, 0, 1);
 
     function getNewPatrolTarget() {
-      patrolTarget.set((Math.random() - 0.5) * 240, 1.75, (Math.random() - 0.5) * 200);
+      patrolTarget.set((Math.random() - 0.5) * 110, 1.75, (Math.random() - 0.5) * 100);
     }
 
     let animationFrameId = null;
     let lastTime = 0;
 
     function initAndStartGame() {
-      setupWebAudio();
-
-      camera.position.set(0, 1.6, 50);
+      camera.position.set(0, 1.6, 25);
       cameraRotation = { yaw: 0, pitch: 0 };
       
       battery = 100;
@@ -381,7 +421,7 @@
       spawnPCParts();
 
       enemyState = 'PATROL';
-      enemy.position.set(0, 1.75, -25);
+      enemy.position.set(0, 1.75, -15);
       getNewPatrolTarget();
 
       isGameOver = false;
@@ -392,8 +432,14 @@
       document.getElementById('game-over').style.display = 'none';
       document.getElementById('game-clear').style.display = 'none';
       document.getElementById('ui').style.display = 'block';
-      lightBtn.style.display = 'block';
-      dashBtn.style.display = 'block';
+      
+      if ('ontouchstart' in window) {
+        lightBtn.style.display = 'block';
+        dashBtn.style.display = 'block';
+      } else {
+        lightBtn.style.display = 'none';
+        dashBtn.style.display = 'none';
+      }
 
       bgm.pause();
       bgm.currentTime = 0;
@@ -462,6 +508,18 @@
       const delta = (now - lastTime) / 1000;
       lastTime = now;
 
+      // 💻 PCキーボード ＋ スマホタッチ操作統合
+      let keyForward = 0;
+      let keySide = 0;
+      if (keys['KeyW'] || keys['ArrowUp']) keyForward += 1;
+      if (keys['KeyS'] || keys['ArrowDown']) keyForward -= 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) keySide -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) keySide += 1;
+
+      const totalForward = moveDir.forward || keyForward;
+      const totalSide = moveDir.side || keySide;
+      const totalDash = isDashing || keys['ShiftLeft'] || keys['ShiftRight'];
+
       // バッテリー消費
       if (isLightOn && battery > 0) {
         battery -= delta * 0.2;
@@ -474,10 +532,10 @@
       batteryValEl.innerText = Math.ceil(battery);
 
       // スタミナ＆ダッシュ制御
-      const isMoving = (moveDir.forward !== 0 || moveDir.side !== 0);
+      const isMoving = (totalForward !== 0 || totalSide !== 0);
       let currentSpeed = normalSpeed;
 
-      if (isDashing && stamina > 0 && isMoving) {
+      if (totalDash && stamina > 0 && isMoving) {
         currentSpeed = dashSpeed;
         stamina -= delta * 25;
         if (stamina <= 0) { stamina = 0; isDashing = false; }
@@ -543,15 +601,15 @@
         }
       }
 
-      // プレイヤー移動
+      // プレイヤー移動計算
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
 
       const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
       const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
-      camera.position.addScaledVector(forward, moveDir.forward * currentSpeed);
-      camera.position.addScaledVector(side, moveDir.side * currentSpeed);
+      camera.position.addScaledVector(forward, totalForward * currentSpeed);
+      camera.position.addScaledVector(side, totalSide * currentSpeed);
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
@@ -559,14 +617,14 @@
       const distToPlayer = vecToPlayer.length();
 
       if (enemyState === 'PATROL') {
-        if (distToPlayer < 20) {
+        if (distToPlayer < 18) {
           const angle = enemyMoveDir.angleTo(vecToPlayer.clone().normalize());
-          if (angle < Math.PI / 3 || distToPlayer < 8) {
+          if (angle < Math.PI / 3 || distToPlayer < 7) {
             enemyState = 'CHASE';
           }
         }
       } else if (enemyState === 'CHASE') {
-        if (distToPlayer > 22) {
+        if (distToPlayer > 20) {
           enemyState = 'PATROL';
           getNewPatrolTarget();
         }
@@ -615,9 +673,10 @@
 
     function triggerGameOver(reason) {
       isGameOver = true;
+      if (document.exitPointerLock) document.exitPointerLock();
       bgm.pause();
       if (bgmGainNode) bgmGainNode.gain.value = 0;
-      jumpScareVoice.play();
+      jumpScareVoice.play().catch(()=>{});
       document.getElementById('death-reason').innerText = reason;
       document.getElementById('game-over').style.display = 'flex';
       lightBtn.style.display = 'none';
@@ -626,6 +685,7 @@
 
     function triggerGameClear() {
       isGameClear = true;
+      if (document.exitPointerLock) document.exitPointerLock();
       bgm.pause();
       if (bgmGainNode) bgmGainNode.gain.value = 0;
       document.getElementById('game-clear').style.display = 'flex';
