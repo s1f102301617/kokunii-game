@@ -13,7 +13,7 @@
       position: absolute;
       top: 0; left: 0; width: 100vw; height: 100vh;
       background: #0a0a0c; color: #fff;
-      z-index: 50;
+      z-index: 200;
       flex-direction: column; justify-content: center; align-items: center;
       text-align: center; padding: 20px; box-sizing: border-box;
     }
@@ -21,42 +21,57 @@
       #rotate-notice { display: flex; }
     }
 
-    #start-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 30; text-align: center; }
-    #start-screen h1 { font-size: 1.8rem; color: #ff3333; margin-bottom: 20px; }
-    #start-btn { font-size: 1.2rem; padding: 15px 30px; background: #ff3333; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    /* スタート画面 */
+    #start-screen {
+      position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.95); color: #fff;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 100; text-align: center;
+    }
+    #start-screen h1 { font-size: 2rem; color: #ff3333; margin: 0 0 10px; text-shadow: 0 0 10px #ff0000; }
+    #start-btn {
+      font-size: 1.3rem; padding: 16px 36px; background: #ff3333; color: #fff;
+      border: none; border-radius: 30px; font-weight: bold; cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 51, 51, 0.5); margin-top: 15px;
+    }
 
+    /* UI要素 */
     #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
     #battery-ui { margin-top: 8px; font-weight: bold; color: #ffff00; font-size: 1.1rem; }
     #status-ui { margin-top: 5px; font-size: 0.9rem; font-weight: bold; color: #00ff00; }
 
     /* 懐中電灯ON/OFFボタン */
-    #light-btn { position: absolute; top: 15px; right: 15px; z-index: 15; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; }
+    #light-btn { position: absolute; top: 15px; right: 15px; z-index: 15; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; display: none; }
 
     /* 危険察知オーバーレイ */
     #danger-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; background: rgba(255,0,0,0); }
 
-    #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; }
+    /* ゲームオーバー画面 */
+    #game-over { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(180, 0, 0, 0.95); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 150; text-align: center; }
     #game-over h1 { font-size: 2.2rem; margin-bottom: 10px; }
-    #game-over button { font-size: 1.2rem; padding: 12px 24px; background: #fff; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    #retry-btn { font-size: 1.2rem; padding: 14px 28px; background: #fff; color: #000; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
   </style>
 </head>
 <body>
 
-  <!-- 縦画面時に表示する固定案内 -->
+  <!-- 縦画面時案内 -->
   <div id="rotate-notice">
     <div style="font-size: 3.5rem; margin-bottom: 15px;">📱↪️</div>
     <h2 style="margin: 0 0 10px;">画面を横向きにしてください</h2>
     <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック」を解除して<br>横に持ってプレイしてください</p>
   </div>
 
+  <!-- 赤フラッシュ用 -->
   <div id="danger-overlay"></div>
 
+  <!-- スタート画面（初期表示） -->
   <div id="start-screen">
     <h1>恐怖の森 - こくにい避難指示</h1>
-    <p style="margin-bottom: 30px;">※音が出ます。横画面でお楽しみください。</p>
-    <button id="start-btn">ゲーム開始</button>
+    <p style="margin: 0 0 10px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。横画面でお楽しみください。</p>
+    <button id="start-btn">🎮 ゲームスタート</button>
   </div>
 
+  <!-- ゲームプレイ中UI -->
   <div id="ui">
     <h2 style="margin:0; font-size:1.2rem;">こくにいから逃げろ！</h2>
     <p style="margin:4px 0 0; font-size:0.75rem; opacity:0.8;">左画面ドラッグ：移動 / 右画面ドラッグ：視点</p>
@@ -67,9 +82,10 @@
 
   <button id="light-btn">ライト ON</button>
 
+  <!-- ゲームオーバー画面 -->
   <div id="game-over">
     <h1 id="death-reason">捕まった...</h1>
-    <button onclick="location.reload()">もう一度プレイ</button>
+    <button id="retry-btn">もう一度プレイ</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -80,19 +96,23 @@
     const jumpScareVoice = new Audio('voice.mp3');
     let audioUnlocked = false;
 
+    const startBtn = document.getElementById('start-btn');
+    const retryBtn = document.getElementById('retry-btn');
     const lightBtn = document.getElementById('light-btn');
     const batteryValEl = document.getElementById('battery-val');
     const warningText = document.getElementById('warning-text');
     const statusUi = document.getElementById('status-ui');
     const dangerOverlay = document.getElementById('danger-overlay');
 
+    let isGameStarted = false;
+    let isGameOver = false;
     let isLightOn = true;
     let battery = 100;
     let noBatteryTime = 0;
 
     // ライトON/OFF切替
     lightBtn.addEventListener('click', () => {
-      if (battery > 0) {
+      if (battery > 0 && isGameStarted && !isGameOver) {
         isLightOn = !isLightOn;
         lightBtn.innerText = isLightOn ? 'ライト ON' : 'ライト OFF';
         flashLight.visible = isLightOn;
@@ -100,46 +120,35 @@
       }
     });
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-      document.getElementById('start-screen').style.display = 'none';
-      document.getElementById('ui').style.display = 'block';
-      lightBtn.style.display = 'block';
-
-      // 可能であればフルスクリーン化＆横固定を試みる
-      if (document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(()=>{});
-      }
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(()=>{});
-      }
-
-      bgm.play().then(() => { audioUnlocked = true; }).catch(e => console.log(e));
-      animate();
+    // スタートボタンタップで開始
+    startBtn.addEventListener('click', () => {
+      initAndStartGame();
     });
 
-    // 3D空間
+    // リトライボタンタップで再スタート
+    retryBtn.addEventListener('click', () => {
+      initAndStartGame();
+    });
+
+    // 3D空間初期構築
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0a0a0c, 0.06);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 1.6, 0);
-
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // 環境光
+    // 環境光＆ライト
     const ambientLight = new THREE.AmbientLight(0x333338);
     scene.add(ambientLight);
 
-    // 懐中電灯
     const flashLight = new THREE.SpotLight(0xffffff, 12, 45, Math.PI / 3.5, 0.4, 1);
     camera.add(flashLight);
     flashLight.target.position.set(0, 0, -1);
     camera.add(flashLight.target);
 
-    // 補助ライト
     const localLight = new THREE.PointLight(0xffffff, 2.5, 10);
     camera.add(localLight);
     scene.add(camera);
@@ -180,10 +189,8 @@
     const enemyMaterial = new THREE.SpriteMaterial({ map: enemyTexture });
     const enemy = new THREE.Sprite(enemyMaterial);
     enemy.scale.set(3.5, 3.5, 1);
-    enemy.position.set(0, 1.75, -25);
     scene.add(enemy);
 
-    // 敵のAI（徘徊 ＆ 索敵ロジック）
     let enemyState = 'PATROL';
     let patrolTarget = new THREE.Vector3();
     let enemyMoveDir = new THREE.Vector3(0, 0, 1);
@@ -191,17 +198,61 @@
     function getNewPatrolTarget() {
       patrolTarget.set((Math.random() - 0.5) * 80, 1.75, (Math.random() - 0.5) * 80);
     }
-    getNewPatrolTarget();
 
-    // タッチ操作制御
+    // ゲーム開始・再スタート処理
+    let animationFrameId = null;
+    let lastTime = 0;
+
+    function initAndStartGame() {
+      camera.position.set(0, 1.6, 0);
+      cameraRotation = { yaw: 0, pitch: 0 };
+      
+      battery = 100;
+      isLightOn = true;
+      flashLight.visible = true;
+      localLight.visible = true;
+      noBatteryTime = 0;
+      
+      enemyState = 'PATROL';
+      enemy.position.set(0, 1.75, -25);
+      getNewPatrolTarget();
+
+      isGameOver = false;
+      isGameStarted = true;
+
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('game-over').style.display = 'none';
+      document.getElementById('ui').style.display = 'block';
+      lightBtn.style.display = 'block';
+      lightBtn.innerText = 'ライト ON';
+      dangerOverlay.style.background = 'rgba(255,0,0,0)';
+
+      // フルスクリーン・横固定試行
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(()=>{});
+      }
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(()=>{});
+      }
+
+      bgm.currentTime = 0;
+      bgm.play().then(() => { audioUnlocked = true; }).catch(e => console.log(e));
+
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      lastTime = performance.now();
+      animate();
+    }
+
+    // タッチ操作制御（ボタンエリア除外）
     let moveTouchId = null, lookTouchId = null;
     let moveStart = { x: 0, y: 0 }, lookStart = { x: 0, y: 0 };
     let moveDir = { forward: 0, side: 0 };
     let cameraRotation = { yaw: 0, pitch: 0 };
 
     window.addEventListener('touchstart', (e) => {
+      if (!isGameStarted || isGameOver) return;
       for (let touch of e.changedTouches) {
-        if (touch.target === lightBtn) continue;
+        if (touch.target.tagName === 'BUTTON') continue;
         if (touch.clientX < window.innerWidth / 2 && moveTouchId === null) {
           moveTouchId = touch.identifier;
           moveStart = { x: touch.clientX, y: touch.clientY };
@@ -213,6 +264,7 @@
     });
 
     window.addEventListener('touchmove', (e) => {
+      if (!isGameStarted || isGameOver) return;
       for (let touch of e.changedTouches) {
         if (touch.identifier === moveTouchId) {
           moveDir.side = Math.min(Math.max((touch.clientX - moveStart.x) / 40, -1), 1);
@@ -234,23 +286,21 @@
     window.addEventListener('touchend', endTouch);
     window.addEventListener('touchcancel', endTouch);
 
-    let isGameOver = false;
     const playerSpeed = 0.07;
     const chaseSpeed = 0.055;
     const patrolSpeed = 0.025;
-    let lastTime = performance.now();
 
     function animate() {
-      if (isGameOver) return;
-      requestAnimationFrame(animate);
+      if (!isGameStarted || isGameOver) return;
+      animationFrameId = requestAnimationFrame(animate);
 
       const now = performance.now();
       const delta = (now - lastTime) / 1000;
       lastTime = now;
 
-      // バッテリー消費
+      // 🔋 バッテリー消費（10秒に1%減るペース：1秒間に0.1%減少）
       if (isLightOn && battery > 0) {
-        battery -= delta * 0.8;
+        battery -= delta * 0.1;
         if (battery <= 0) {
           battery = 0;
           isLightOn = false;
@@ -375,7 +425,6 @@
       document.getElementById('game-over').style.display = 'flex';
     }
 
-    // 画面リサイズ・回転時対応
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
