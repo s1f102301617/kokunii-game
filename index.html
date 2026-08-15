@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.5.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.6.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -288,6 +288,38 @@
       return tex;
     }
 
+    // ⛰️ 岩肌・崖用のリアルなテクスチャ生成
+    function createCliffTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#141613'; ctx.fillRect(0,0,512,512); // 暗いコケ・岩ベース
+      
+      // ノイズ（ざらつき）
+      for(let i=0; i<25000; i++) {
+        const v = Math.floor(Math.random() * 30);
+        ctx.fillStyle = `rgba(${v},${v+2},${v},0.5)`; // 少し緑がかったグレー
+        ctx.fillRect(Math.random()*512, Math.random()*512, 2 + Math.random()*4, 2 + Math.random()*4);
+      }
+      // ひび割れ・岩の起伏
+      ctx.strokeStyle = '#080907';
+      ctx.lineWidth = 4;
+      for(let i=0; i<35; i++) {
+        ctx.beginPath();
+        let cx = Math.random()*512, cy = Math.random()*512;
+        ctx.moveTo(cx, cy);
+        for(let j=0; j<10; j++) {
+          cx += (Math.random()-0.5)*70; cy += (Math.random()-0.5)*70;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(6, 4);
+      return tex;
+    }
+
     // 3D空間構築
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x050508, 0.04);
@@ -398,10 +430,16 @@
     barricadeGroup.add(fenceBoard, pole1, pole2);
     scene.add(barricadeGroup);
 
-    // ガードレール
+    // 🚧 ガードレールの配置（後方の詰み防止のための隙間を追加！）
     const guardRailMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.6 });
     const rustMat = new THREE.MeshStandardMaterial({ color: 0x5a2d18, roughness: 0.9 });
-    const guardGaps = [{ minZ: 0, maxZ: 18 }, { minZ: -35, maxZ: -20 }];
+    
+    // Z: 35〜60 を抜け道に追加（後方で追いつめられても逃げられるようにする）
+    const guardGaps = [
+      { minZ: 35, maxZ: 60 },
+      { minZ: 0, maxZ: 18 }, 
+      { minZ: -35, maxZ: -20 }
+    ];
     function isInsideGap(z) { return guardGaps.some(g => z >= g.minZ && z <= g.maxZ); }
 
     for (let z = -45; z <= 60; z += 6) {
@@ -424,25 +462,26 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山肌（トンネルより確実に外側へ配置してZファイティングを防止）
-    const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
+    // ⛰️ リアルなテクスチャを貼った山肌の配置
+    const cliffTex = createCliffTexture();
+    const cliffMat = new THREE.MeshStandardMaterial({ map: cliffTex, roughness: 1.0 });
     
-    // 左の山（右端を X = -5 に設定）
+    // 左の山
     const mountainL = new THREE.Mesh(new THREE.BoxGeometry(80, 40, 40), cliffMat);
     mountainL.position.set(-45, 20, -70);
     scene.add(mountainL);
     
-    // 右の山（左端を X = 5 に設定）
+    // 右の山
     const mountainR = new THREE.Mesh(new THREE.BoxGeometry(80, 40, 40), cliffMat);
     mountainR.position.set(45, 20, -70);
     scene.add(mountainR);
 
-    // 奥の山（Z = -90 に配置してトンネルの奥を塞ぐ）
+    // 奥の山
     const mountainBack = new THREE.Mesh(new THREE.BoxGeometry(160, 50, 20), cliffMat);
     mountainBack.position.set(0, 25, -90);
     scene.add(mountainBack);
 
-    // 🚇 トンネルの壁と天井（DoubleSideで透けないようにする）
+    // 🚇 トンネルの壁と天井
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
@@ -453,20 +492,18 @@
     const tunnelLength = 32;
     const tunnelZCenter = -16;
 
-    // 左壁 (X: -4.5 ～ -4.0)
+    // 左壁
     const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, tunnelLength), concreteMat);
     wallL.position.set(-4.25, 2, tunnelZCenter);
-    // 右壁 (X: 4.0 ～ 4.5)
+    // 右壁
     const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, tunnelLength), concreteMat);
     wallR.position.set(4.25, 2, tunnelZCenter);
-
-    // アーチ天井（半径4.0）
+    // アーチ天井
     const archGeo = new THREE.CylinderGeometry(4.0, 4.0, tunnelLength, 24, 1, true, 0, Math.PI);
     const archMesh = new THREE.Mesh(archGeo, concreteMat);
     archMesh.rotation.z = Math.PI / 2;
     archMesh.rotation.y = Math.PI / 2;
     archMesh.position.set(0, 4, tunnelZCenter);
-
     // 奥壁
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(9, 9, 1), concreteMat);
     backWall.position.set(0, 4.5, -32.5);
@@ -836,7 +873,7 @@
         }
       }
 
-      // 🚶 物理衝突判定（移動計算）
+      // 🚶 移動計算
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
@@ -850,7 +887,7 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      // 🛑 木・ガードレール・山肌前面の円形コリジョン判定
+      // 🛑 木の衝突判定
       for (let t of treeColliders) {
         const dx = camera.position.x - t.x;
         const dz = camera.position.z - t.z;
@@ -866,7 +903,7 @@
         }
       }
 
-      // ガードレールの道路外側判定
+      // 🛑 ガードレールの衝突判定
       if (camera.position.z < 60 && camera.position.z > -50) {
         const inGap = isInsideGap(camera.position.z);
         if (!inGap) {
@@ -879,7 +916,7 @@
         }
       }
 
-      // 🛑 座標監視による「絶対すり抜け防止」システム
+      // 🛑 座標監視による「絶対すり抜け防止」システム（トンネル・山肌）
       if (camera.position.z < -49.5) {
         // トンネルの幅内（X = -3.7 ～ 3.7）にいる場合
         if (camera.position.x > -3.7 && camera.position.x < 3.7) {
