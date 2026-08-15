@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.4.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.5.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -163,12 +163,10 @@
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
-
       bgm.play().then(() => {
         bgm.pause();
         bgm.currentTime = 0;
       }).catch(e => console.log(e));
-
       jumpScareVoice.play().then(() => {
         jumpScareVoice.pause();
         jumpScareVoice.currentTime = 0;
@@ -374,7 +372,7 @@
     homeBtnOver.addEventListener('click', goToHome);
     homeBtnClear.addEventListener('click', goToHome);
 
-    // 地面・道路（奥まで延長）
+    // 地面・道路
     const groundMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.95 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -404,7 +402,6 @@
     const guardRailMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.6 });
     const rustMat = new THREE.MeshStandardMaterial({ color: 0x5a2d18, roughness: 0.9 });
     const guardGaps = [{ minZ: 0, maxZ: 18 }, { minZ: -35, maxZ: -20 }];
-
     function isInsideGap(z) { return guardGaps.some(g => z >= g.minZ && z <= g.maxZ); }
 
     for (let z = -45; z <= 60; z += 6) {
@@ -427,69 +424,102 @@
       scene.add(railR);
     }
 
-    // ⛰️ 山肌（トンネル開口部を避けた3パーツ構成）
-    // これにより食い込みやZファイティングが理論上100%発生しない
+    // ⛰️ 山肌（トンネルより確実に外側へ配置してZファイティングを防止）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
     
-    // 左の山 (X = -44 に配置、幅80なので右端が X = -4.0 となる)
+    // 左の山（右端を X = -5 に設定）
     const mountainL = new THREE.Mesh(new THREE.BoxGeometry(80, 40, 40), cliffMat);
-    mountainL.position.set(-44, 20, -70);
+    mountainL.position.set(-45, 20, -70);
     scene.add(mountainL);
     
-    // 右の山 (X = 44 に配置、幅80なので左端が X = 4.0 となる)
+    // 右の山（左端を X = 5 に設定）
     const mountainR = new THREE.Mesh(new THREE.BoxGeometry(80, 40, 40), cliffMat);
-    mountainR.position.set(44, 20, -70);
+    mountainR.position.set(45, 20, -70);
     scene.add(mountainR);
 
-    // 上の山 (X = 0, 下端がアーチの頂点付近になるよう配置)
-    const mountainT = new THREE.Mesh(new THREE.BoxGeometry(160, 32, 40), cliffMat);
-    mountainT.position.set(0, 24, -70);
-    scene.add(mountainT);
+    // 奥の山（Z = -90 に配置してトンネルの奥を塞ぐ）
+    const mountainBack = new THREE.Mesh(new THREE.BoxGeometry(160, 50, 20), cliffMat);
+    mountainBack.position.set(0, 25, -90);
+    scene.add(mountainBack);
 
-    // 🚇 トンネル構造（穴の中にピタリと収まる設計）
+    // 🚇 トンネルの壁と天井（DoubleSideで透けないようにする）
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
-    // トンネル本体 (Z: -50 から -82)
     const tunnelGroup = new THREE.Group();
+    tunnelGroup.position.set(0, 0, -50);
     const tunnelLength = 32;
-    const tunnelZCenter = -50 - (tunnelLength / 2); // -66
+    const tunnelZCenter = -16;
 
-    // 左右壁
+    // 左壁 (X: -4.5 ～ -4.0)
     const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, tunnelLength), concreteMat);
     wallL.position.set(-4.25, 2, tunnelZCenter);
+    // 右壁 (X: 4.0 ～ 4.5)
     const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, tunnelLength), concreteMat);
     wallR.position.set(4.25, 2, tunnelZCenter);
 
     // アーチ天井（半径4.0）
-    const archGeo = new THREE.CylinderGeometry(4.0, 4.0, tunnelLength, 20, 1, true, 0, Math.PI);
+    const archGeo = new THREE.CylinderGeometry(4.0, 4.0, tunnelLength, 24, 1, true, 0, Math.PI);
     const archMesh = new THREE.Mesh(archGeo, concreteMat);
     archMesh.rotation.z = Math.PI / 2;
     archMesh.rotation.y = Math.PI / 2;
     archMesh.position.set(0, 4, tunnelZCenter);
 
     // 奥壁
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(8.5, 8, 1), concreteMat);
-    backWall.position.set(0, 4, -82.5);
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(9, 9, 1), concreteMat);
+    backWall.position.set(0, 4.5, -32.5);
 
     tunnelGroup.add(wallL, wallR, archMesh, backWall);
     scene.add(tunnelGroup);
 
-    // 入口ポータル枠（アーチの隙間も覆い隠すサイズ）
-    const portalGroup = new THREE.Group();
-    
-    // Z = -49.25 (山の前面-50の少し手前)
-    const portalTop = new THREE.Mesh(new THREE.BoxGeometry(11, 2, 1.5), warningMat);
-    portalTop.position.set(0, 7.5, -49.25);
-    const portalL = new THREE.Mesh(new THREE.BoxGeometry(1, 8, 1.5), concreteMat);
-    portalL.position.set(-4.5, 4, -49.25);
-    const portalR = new THREE.Mesh(new THREE.BoxGeometry(1, 8, 1.5), concreteMat);
-    portalR.position.set(4.5, 4, -49.25);
+    // 🚪 坑門（アーチの形にくり抜かれた美しい一枚岩のポータル壁）
+    const portalShape = new THREE.Shape();
+    portalShape.moveTo(-20, 0);
+    portalShape.lineTo(20, 0);
+    portalShape.lineTo(20, 15);
+    portalShape.lineTo(-20, 15);
+    portalShape.lineTo(-20, 0);
 
-    portalGroup.add(portalTop, portalL, portalR);
-    scene.add(portalGroup);
+    const portalHole = new THREE.Path();
+    portalHole.moveTo(-4, 0);
+    portalHole.lineTo(-4, 4);
+    // 時計回りに円弧を描いて穴を開ける
+    portalHole.absarc(0, 4, 4, Math.PI, 0, true);
+    portalHole.lineTo(4, 0);
+    portalHole.lineTo(-4, 0);
+    portalShape.holes.push(portalHole);
+
+    const extrudeSettings = { depth: 2, bevelEnabled: false };
+    const portalGeo = new THREE.ExtrudeGeometry(portalShape, extrudeSettings);
+    
+    // UVマッピングを調整してテクスチャを綺麗に貼る
+    const pos = portalGeo.attributes.position;
+    const uv = portalGeo.attributes.uv;
+    for(let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        uv.setXY(i, x / 8, y / 8);
+    }
+
+    const portalMesh = new THREE.Mesh(portalGeo, concreteMat);
+    // 坑門の前面が Z = -50 になるように配置
+    portalMesh.position.set(0, 0, -52);
+    scene.add(portalMesh);
+
+    // 👷 入口の作り込み装飾（柱と警戒色の梁）
+    const pillarGeo = new THREE.BoxGeometry(1.2, 8.5, 1.5);
+    const pillarL = new THREE.Mesh(pillarGeo, concreteMat);
+    pillarL.position.set(-4.6, 4.25, -49.25);
+    const pillarR = new THREE.Mesh(pillarGeo, concreteMat);
+    pillarR.position.set(4.6, 4.25, -49.25);
+    scene.add(pillarL, pillarR);
+
+    const beamGeo = new THREE.BoxGeometry(11, 1.5, 1.5);
+    const beam = new THREE.Mesh(beamGeo, warningMat);
+    beam.position.set(0, 9.25, -49.25);
+    scene.add(beam);
 
     // 🚨 非常灯
     for (let zPos of [-58, -68, -78]) {
@@ -505,7 +535,7 @@
       scene.add(lampLight);
     }
 
-    // PC（トンネル最奥部）
+    // 💻 PC（トンネル最奥部）
     const pcGroup = new THREE.Group();
     pcGroup.position.set(0, 0.5, -81);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
@@ -514,8 +544,15 @@
     pcGroup.add(deskMesh, monitorMesh);
     scene.add(pcGroup);
 
-    // 🌲 木の円形コリジョン
+    // 🛑 当たり判定（コリジョン）
     const treeColliders = [];
+    
+    // 山肌の前面判定
+    for (let x = -80; x <= 80; x += 4) {
+      if (Math.abs(x) > 4.0) {
+        treeColliders.push({ x: x, z: -49, radius: 2.0 });
+      }
+    }
 
     function createTree() {
       const tree = new THREE.Group();
@@ -533,6 +570,7 @@
       return tree;
     }
 
+    // 通常の木
     for (let i = 0; i < 80; i++) {
       const tree = createTree();
       let x = (Math.random() - 0.5) * 120;
@@ -545,6 +583,7 @@
       }
     }
 
+    // 密林外周
     for (let i = 0; i < 160; i++) {
       const tree = createTree();
       tree.scale.set(1.2, 1.3, 1.2);
@@ -653,7 +692,7 @@
       animate();
     }
 
-    // タッチ操作制御
+    // タッチ操作
     let moveTouchId = null, lookTouchId = null;
     let moveStart = { x: 0, y: 0 }, lookStart = { x: 0, y: 0 };
     let moveDir = { forward: 0, side: 0 };
@@ -664,6 +703,7 @@
       for (let touch of e.changedTouches) {
         const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
         if (targetEl && (targetEl.tagName === 'BUTTON' || targetEl.closest('button'))) continue;
+
         if (touch.clientX < window.innerWidth / 2 && moveTouchId === null) {
           moveTouchId = touch.identifier;
           moveStart = { x: touch.clientX, y: touch.clientY };
@@ -796,7 +836,7 @@
         }
       }
 
-      // 🚶 移動計算
+      // 🚶 物理衝突判定（移動計算）
       camera.rotation.order = 'YXZ';
       camera.rotation.y = cameraRotation.yaw;
       camera.rotation.x = cameraRotation.pitch;
@@ -810,7 +850,7 @@
       camera.position.addScaledVector(forward, totalForward * currentSpeed);
       camera.position.addScaledVector(side, totalSide * currentSpeed);
 
-      // 🛑 木の衝突判定
+      // 🛑 木・ガードレール・山肌前面の円形コリジョン判定
       for (let t of treeColliders) {
         const dx = camera.position.x - t.x;
         const dz = camera.position.z - t.z;
@@ -826,7 +866,7 @@
         }
       }
 
-      // 🛑 ガードレールの衝突判定
+      // ガードレールの道路外側判定
       if (camera.position.z < 60 && camera.position.z > -50) {
         const inGap = isInsideGap(camera.position.z);
         if (!inGap) {
@@ -839,15 +879,15 @@
         }
       }
 
-      // 🛑 座標監視による「絶対すり抜け防止」システム（トンネル・山肌）
-      if (camera.position.z < -49.7) {
+      // 🛑 座標監視による「絶対すり抜け防止」システム
+      if (camera.position.z < -49.5) {
         // トンネルの幅内（X = -3.7 ～ 3.7）にいる場合
         if (camera.position.x > -3.7 && camera.position.x < 3.7) {
           if (camera.position.z < -81.7) camera.position.z = -81.7; // 奥の壁にブロック
         } else {
           // トンネルの幅外にいる場合（山肌にぶつかる）
-          if (oldZ >= -49.7) {
-            camera.position.z = -49.7; // 正面から山に突っ込んだらブロック
+          if (oldZ >= -49.5) {
+            camera.position.z = -49.5; // 正面から山に突っ込んだらブロック
           } else {
             // トンネル内部の横壁に突っ込んだら、絶対に外に出さない
             if (camera.position.x <= -3.7) camera.position.x = -3.7;
