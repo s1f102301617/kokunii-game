@@ -92,7 +92,7 @@
 
   <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.1.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.3.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -460,19 +460,19 @@
     // 🛑 当たり判定用データ配列
     const treeColliders = [];
 
-    // ⛰️ 山肌（トンネルの奥 Z = -85 に完全に分離して配置し、重なりを根絶）
+    // ⛰️ 山肌（トンネルの入り口 Z = -50 より後ろの Z = -62 にぴったり配置。食い込みをゼロに修正！）
     const cliffMat = new THREE.MeshStandardMaterial({ color: 0x0f180d, roughness: 1.0 });
-    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(180, 50, 20), cliffMat);
-    mountainWall.position.set(0, 22, -85);
+    const mountainWall = new THREE.Mesh(new THREE.BoxGeometry(180, 45, 20), cliffMat);
+    mountainWall.position.set(0, 20, -62);
     scene.add(mountainWall);
 
     for (let x = -80; x <= 80; x += 4) {
       if (Math.abs(x) > 4.5) {
-        treeColliders.push({ x: x, z: -50, radius: 2.0 });
+        treeColliders.push({ x: x, z: -52, radius: 2.0 });
       }
     }
 
-    // 🚇 クリーニングされたトンネル構造
+    // 🚇 正常な長さのシンプル・トンネル構造 (Z = -50 から Z = -82)
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
@@ -481,7 +481,6 @@
     const tunnelGroup = new THREE.Group();
     tunnelGroup.position.set(0, 0, -50);
 
-    // 左右の壁（片面描画にすることでちらつきを完全防止）
     const wallMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.FrontSide });
     
     const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 6, 32), wallMat);
@@ -489,11 +488,9 @@
     const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 6, 32), wallMat);
     wallR.position.set(4.25, 3, -16);
 
-    // 天井
     const ceil = new THREE.Mesh(new THREE.BoxGeometry(9, 0.5, 32), wallMat);
     ceil.position.set(0, 6.25, -16);
 
-    // 最奥の壁
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(9, 6.5, 1), wallMat);
     backWall.position.set(0, 3.25, -32);
 
