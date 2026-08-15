@@ -83,16 +83,14 @@
 </head>
 <body>
 
-  <!-- 縦画面時案内（スマホ用） -->
   <div id="rotate-notice">
     <div style="font-size: 3.5rem; margin-bottom: 15px;">📱↪️</div>
     <h2 style="margin: 0 0 10px;">画面を横向きにしてください</h2>
     <p style="font-size: 0.85rem; opacity: 0.8; margin: 0;">※スマホの「画面回転ロック」を解除して<br>横に持ってプレイしてください</p>
   </div>
 
-  <!-- スタート画面 -->
   <div id="start-screen">
-    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.6.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span class="version-tag">v2.7.0</span></h1>
     <p style="margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8;">※音が出ます。</p>
     <p style="margin: 0 0 15px; font-size: 0.8rem; opacity: 0.6; line-height: 1.4;">
       【PC操作】WASD: 移動 / マウス: 視点 / Shift: 走る / F: ライト<br>
@@ -102,7 +100,6 @@
     <button id="update-btn">🔄 最新版にアップデート（更新）</button>
   </div>
 
-  <!-- ゲームプレイ中UI -->
   <div id="ui">
     <h2 style="margin:0; font-size:1.1rem;">こくにいから逃げろ！</h2>
     <div id="parts-ui">💻 PCパーツ: <span id="parts-val">0</span> / 4</div>
@@ -114,7 +111,6 @@
   <button id="light-btn" class="game-btn">ライト ON</button>
   <button id="dash-btn" class="game-btn">🏃 走る</button>
 
-  <!-- ゲームオーバー画面 -->
   <div id="game-over">
     <h1 id="death-reason">捕まった...</h1>
     <div class="btn-group">
@@ -123,7 +119,6 @@
     </div>
   </div>
 
-  <!-- ゲームクリア画面 -->
   <div id="game-clear">
     <h1>脱出成功！</h1>
     <p style="font-size:1.1rem;">PCの起動に成功し、無事に森から脱出できた！</p>
@@ -139,13 +134,11 @@
     bgm.loop = true;
     const jumpScareVoice = new Audio('voice.mp3');
 
-    // 🔄 アップデートボタン処理
     document.getElementById('update-btn').addEventListener('click', () => {
       const now = new Date().getTime();
       window.location.href = window.location.pathname + '?v=' + now;
     });
 
-    // 🔊 音声解除処理
     let audioCtx = null;
     let bgmGainNode = null;
     let bgmSourceNode = null;
@@ -160,17 +153,9 @@
         bgmSourceNode.connect(bgmGainNode);
         bgmGainNode.connect(audioCtx.destination);
       }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-      bgm.play().then(() => {
-        bgm.pause();
-        bgm.currentTime = 0;
-      }).catch(e => console.log(e));
-      jumpScareVoice.play().then(() => {
-        jumpScareVoice.pause();
-        jumpScareVoice.currentTime = 0;
-      }).catch(e => console.log(e));
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      bgm.play().then(() => { bgm.pause(); bgm.currentTime = 0; }).catch(e => console.log(e));
+      jumpScareVoice.play().then(() => { jumpScareVoice.pause(); jumpScareVoice.currentTime = 0; }).catch(e => console.log(e));
     }
 
     const startBtn = document.getElementById('start-btn');
@@ -200,16 +185,12 @@
     window.addEventListener('keydown', (e) => {
       keys[e.code] = true;
       if (e.code === 'KeyF') {
-        if (battery > 0 && isGameStarted && !isGameOver && !isGameClear) {
-          setLightState(!isLightOn);
-        }
+        if (battery > 0 && isGameStarted && !isGameOver && !isGameClear) setLightState(!isLightOn);
       }
     });
-    window.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
-    });
+    window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-    // 🎨 テクスチャ動的生成
+    // 🎨 テクスチャ生成
     function createGrassTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 512;
@@ -252,7 +233,7 @@
       ctx.fillRect(122, 300, 12, 160);
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(1, 15);
+      tex.repeat.set(1, 18);
       return tex;
     }
 
@@ -260,15 +241,19 @@
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = 256;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#1c1c20'; ctx.fillRect(0,0,256,256);
-      for(let i=0; i<8000; i++) {
-        const v = Math.floor(Math.random() * 30);
-        ctx.fillStyle = `rgba(${v},${v},${v},0.25)`;
-        ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+      ctx.fillStyle = '#222225'; ctx.fillRect(0,0,256,256);
+      for(let i=0; i<10000; i++) {
+        const v = Math.floor(Math.random() * 40);
+        ctx.fillStyle = `rgba(${v},${v},${v},0.3)`;
+        ctx.fillRect(Math.random()*256, Math.random()*256, 1.5, 1.5);
+      }
+      for(let i=0; i<30; i++) {
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(0, Math.random()*256, 256, Math.random()*3);
       }
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(2, 6);
+      tex.repeat.set(2, 2);
       return tex;
     }
 
@@ -288,27 +273,24 @@
       return tex;
     }
 
-    // ⛰️ 岩肌・崖用のリアルなテクスチャ生成
+    // ⛰️ さらにリアルになった崖（岩肌）テクスチャ
     function createCliffTexture() {
       const canvas = document.createElement('canvas');
       canvas.width = 512; canvas.height = 512;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#141613'; ctx.fillRect(0,0,512,512); // 暗いコケ・岩ベース
-      
-      // ノイズ（ざらつき）
-      for(let i=0; i<25000; i++) {
-        const v = Math.floor(Math.random() * 30);
-        ctx.fillStyle = `rgba(${v},${v+2},${v},0.5)`; // 少し緑がかったグレー
-        ctx.fillRect(Math.random()*512, Math.random()*512, 2 + Math.random()*4, 2 + Math.random()*4);
+      ctx.fillStyle = '#0f110c'; ctx.fillRect(0,0,512,512); 
+      for(let i=0; i<35000; i++) {
+        const v = Math.floor(Math.random() * 25);
+        ctx.fillStyle = `rgba(${v},${v+3},${v},0.7)`; 
+        ctx.fillRect(Math.random()*512, Math.random()*512, 1.5 + Math.random()*3, 1.5 + Math.random()*3);
       }
-      // ひび割れ・岩の起伏
-      ctx.strokeStyle = '#080907';
-      ctx.lineWidth = 4;
-      for(let i=0; i<35; i++) {
+      ctx.strokeStyle = '#050604';
+      for(let i=0; i<50; i++) {
+        ctx.lineWidth = 1 + Math.random() * 4;
         ctx.beginPath();
         let cx = Math.random()*512, cy = Math.random()*512;
         ctx.moveTo(cx, cy);
-        for(let j=0; j<10; j++) {
+        for(let j=0; j<8; j++) {
           cx += (Math.random()-0.5)*70; cy += (Math.random()-0.5)*70;
           ctx.lineTo(cx, cy);
         }
@@ -316,7 +298,7 @@
       }
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(6, 4);
+      tex.repeat.set(6, 3);
       return tex;
     }
 
@@ -343,7 +325,6 @@
       }
     });
 
-    // ライティング
     const ambientLight = new THREE.AmbientLight(0x222230, 0.15);
     scene.add(ambientLight);
     const flashLight = new THREE.SpotLight(0xfffae6, 18, 55, Math.PI / 3, 0.6, 1.8);
@@ -404,16 +385,16 @@
     homeBtnOver.addEventListener('click', goToHome);
     homeBtnClear.addEventListener('click', goToHome);
 
-    // 地面・道路
+    // 地面・道路（奥まで完全延長）
     const groundMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.95 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), groundMat);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
     const roadMat = new THREE.MeshStandardMaterial({ map: createRoadTexture(), roughness: 0.9, metalness: 0.0 });
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 160), roadMat);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 180), roadMat);
     road.rotation.x = -Math.PI / 2;
-    road.position.set(0, 0.02, -10);
+    road.position.set(0, 0.02, -20);
     scene.add(road);
 
     // バリケード
@@ -430,16 +411,10 @@
     barricadeGroup.add(fenceBoard, pole1, pole2);
     scene.add(barricadeGroup);
 
-    // 🚧 ガードレールの配置（後方の詰み防止のための隙間を追加！）
+    // ガードレール
     const guardRailMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.6 });
     const rustMat = new THREE.MeshStandardMaterial({ color: 0x5a2d18, roughness: 0.9 });
-    
-    // Z: 35〜60 を抜け道に追加（後方で追いつめられても逃げられるようにする）
-    const guardGaps = [
-      { minZ: 35, maxZ: 60 },
-      { minZ: 0, maxZ: 18 }, 
-      { minZ: -35, maxZ: -20 }
-    ];
+    const guardGaps = [{ minZ: 35, maxZ: 60 }, { minZ: 0, maxZ: 18 }, { minZ: -35, maxZ: -20 }];
     function isInsideGap(z) { return guardGaps.some(g => z >= g.minZ && z <= g.maxZ); }
 
     for (let z = -45; z <= 60; z += 6) {
@@ -462,100 +437,101 @@
       scene.add(railR);
     }
 
-    // ⛰️ リアルなテクスチャを貼った山肌の配置
+    // ⛰️ 重ならないように完全に計算された「山肌（崖）」
     const cliffTex = createCliffTexture();
     const cliffMat = new THREE.MeshStandardMaterial({ map: cliffTex, roughness: 1.0 });
     
-    // 左の山
-    const mountainL = new THREE.Mesh(new THREE.BoxGeometry(80, 40, 40), cliffMat);
-    mountainL.position.set(-45, 20, -70);
-    scene.add(mountainL);
+    // トンネルの背後 Z = -50.5 以降に配置（絶対に食い込まない）
+    const mDepth = 50;
+    const mZ = -50.5 - (mDepth / 2); 
     
-    // 右の山
-    const mountainR = new THREE.Mesh(new THREE.BoxGeometry(80, 40, 40), cliffMat);
-    mountainR.position.set(45, 20, -70);
-    scene.add(mountainR);
+    const mL = new THREE.Mesh(new THREE.BoxGeometry(100, 50, mDepth), cliffMat);
+    mL.position.set(-54, 25, mZ);
+    scene.add(mL);
+    
+    const mR = new THREE.Mesh(new THREE.BoxGeometry(100, 50, mDepth), cliffMat);
+    mR.position.set(54, 25, mZ);
+    scene.add(mR);
 
-    // 奥の山
-    const mountainBack = new THREE.Mesh(new THREE.BoxGeometry(160, 50, 20), cliffMat);
-    mountainBack.position.set(0, 25, -90);
-    scene.add(mountainBack);
+    const mT = new THREE.Mesh(new THREE.BoxGeometry(8, 42, mDepth), cliffMat);
+    mT.position.set(0, 8 + 21, mZ);
+    scene.add(mT);
 
-    // 🚇 トンネルの壁と天井
+    // 奥の謎の壁（山肌）は、トンネルの終了位置（-82.5）よりも遥か後方へ退避！
+    const mB = new THREE.Mesh(new THREE.BoxGeometry(200, 50, 20), cliffMat);
+    mB.position.set(0, 25, -120);
+    scene.add(mB);
+
+    // 🚇 トンネルの壁と天井（DoubleSideで透けないようにする）
     const concreteTex = createConcreteTexture();
     const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9, side: THREE.DoubleSide });
     const warningTex = createWarningTexture();
     const warningMat = new THREE.MeshStandardMaterial({ map: warningTex, roughness: 0.8 });
 
     const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0, -50);
     const tunnelLength = 32;
-    const tunnelZCenter = -16;
+    const tunnelZCenter = -66.5;
 
-    // 左壁
+    // トンネルの壁
     const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, tunnelLength), concreteMat);
     wallL.position.set(-4.25, 2, tunnelZCenter);
-    // 右壁
     const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, tunnelLength), concreteMat);
     wallR.position.set(4.25, 2, tunnelZCenter);
-    // アーチ天井
+
+    // アーチ天井（半径4.0）
     const archGeo = new THREE.CylinderGeometry(4.0, 4.0, tunnelLength, 24, 1, true, 0, Math.PI);
     const archMesh = new THREE.Mesh(archGeo, concreteMat);
     archMesh.rotation.z = Math.PI / 2;
     archMesh.rotation.y = Math.PI / 2;
     archMesh.position.set(0, 4, tunnelZCenter);
-    // 奥壁
+
+    // 最奥の壁（Z = -82.5 にしっかり蓋をする）
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(9, 9, 1), concreteMat);
-    backWall.position.set(0, 4.5, -32.5);
+    backWall.position.set(0, 4.5, -83.0);
 
     tunnelGroup.add(wallL, wallR, archMesh, backWall);
     scene.add(tunnelGroup);
 
-    // 🚪 坑門（アーチの形にくり抜かれた美しい一枚岩のポータル壁）
-    const portalShape = new THREE.Shape();
-    portalShape.moveTo(-20, 0);
-    portalShape.lineTo(20, 0);
-    portalShape.lineTo(20, 15);
-    portalShape.lineTo(-20, 15);
-    portalShape.lineTo(-20, 0);
+    // 🚪 坑門（美しくアーチ状にくり抜かれたコンクリートの入口）
+    const facadeShape = new THREE.Shape();
+    facadeShape.moveTo(-20, 0);
+    facadeShape.lineTo(20, 0);
+    facadeShape.lineTo(20, 15);
+    facadeShape.lineTo(-20, 15);
+    facadeShape.lineTo(-20, 0);
 
     const portalHole = new THREE.Path();
     portalHole.moveTo(-4, 0);
     portalHole.lineTo(-4, 4);
-    // 時計回りに円弧を描いて穴を開ける
     portalHole.absarc(0, 4, 4, Math.PI, 0, true);
     portalHole.lineTo(4, 0);
     portalHole.lineTo(-4, 0);
-    portalShape.holes.push(portalHole);
+    facadeShape.holes.push(portalHole);
 
-    const extrudeSettings = { depth: 2, bevelEnabled: false };
-    const portalGeo = new THREE.ExtrudeGeometry(portalShape, extrudeSettings);
+    const extrudeSettings = { depth: 0.5, bevelEnabled: false };
+    const facadeGeo = new THREE.ExtrudeGeometry(facadeShape, extrudeSettings);
     
-    // UVマッピングを調整してテクスチャを綺麗に貼る
-    const pos = portalGeo.attributes.position;
-    const uv = portalGeo.attributes.uv;
+    // コンクリートのテクスチャを綺麗に貼るUV調整
+    const pos = facadeGeo.attributes.position;
+    const uv = facadeGeo.attributes.uv;
     for(let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        uv.setXY(i, x / 8, y / 8);
+        uv.setXY(i, pos.getX(i) / 6, pos.getY(i) / 6);
     }
+    const facadeMesh = new THREE.Mesh(facadeGeo, concreteMat);
+    facadeMesh.position.set(0, 0, -50.5); // 山肌よりも手前に設置し、モザイク（Zファイティング）を完全根絶！
+    scene.add(facadeMesh);
 
-    const portalMesh = new THREE.Mesh(portalGeo, concreteMat);
-    // 坑門の前面が Z = -50 になるように配置
-    portalMesh.position.set(0, 0, -52);
-    scene.add(portalMesh);
-
-    // 👷 入口の作り込み装飾（柱と警戒色の梁）
-    const pillarGeo = new THREE.BoxGeometry(1.2, 8.5, 1.5);
+    // 👷 トンネル入口の重厚な作り込み（柱と梁）
+    const pillarGeo = new THREE.BoxGeometry(1.2, 9.0, 1.2);
     const pillarL = new THREE.Mesh(pillarGeo, concreteMat);
-    pillarL.position.set(-4.6, 4.25, -49.25);
+    pillarL.position.set(-4.6, 4.5, -49.4);
     const pillarR = new THREE.Mesh(pillarGeo, concreteMat);
-    pillarR.position.set(4.6, 4.25, -49.25);
+    pillarR.position.set(4.6, 4.5, -49.4);
     scene.add(pillarL, pillarR);
 
-    const beamGeo = new THREE.BoxGeometry(11, 1.5, 1.5);
+    const beamGeo = new THREE.BoxGeometry(11, 1.5, 1.4);
     const beam = new THREE.Mesh(beamGeo, warningMat);
-    beam.position.set(0, 9.25, -49.25);
+    beam.position.set(0, 9.25, -49.4);
     scene.add(beam);
 
     // 🚨 非常灯
@@ -572,7 +548,7 @@
       scene.add(lampLight);
     }
 
-    // 💻 PC（トンネル最奥部）
+    // 💻 PC（トンネル最奥部 Z = -81）
     const pcGroup = new THREE.Group();
     pcGroup.position.set(0, 0.5, -81);
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 1), new THREE.MeshStandardMaterial({ color: 0x22150a, roughness: 0.9 }));
@@ -584,13 +560,6 @@
     // 🛑 当たり判定（コリジョン）
     const treeColliders = [];
     
-    // 山肌の前面判定
-    for (let x = -80; x <= 80; x += 4) {
-      if (Math.abs(x) > 4.0) {
-        treeColliders.push({ x: x, z: -49, radius: 2.0 });
-      }
-    }
-
     function createTree() {
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(
@@ -607,7 +576,6 @@
       return tree;
     }
 
-    // 通常の木
     for (let i = 0; i < 80; i++) {
       const tree = createTree();
       let x = (Math.random() - 0.5) * 120;
@@ -620,7 +588,6 @@
       }
     }
 
-    // 密林外周
     for (let i = 0; i < 160; i++) {
       const tree = createTree();
       tree.scale.set(1.2, 1.3, 1.2);
@@ -916,17 +883,16 @@
         }
       }
 
-      // 🛑 座標監視による「絶対すり抜け防止」システム（トンネル・山肌）
-      if (camera.position.z < -49.5) {
-        // トンネルの幅内（X = -3.7 ～ 3.7）にいる場合
+      // 🛑 座標監視による「絶対すり抜け防止」システム
+      if (camera.position.z < -49.0) {
         if (camera.position.x > -3.7 && camera.position.x < 3.7) {
-          if (camera.position.z < -81.7) camera.position.z = -81.7; // 奥の壁にブロック
+          // トンネル内の前進限界（PCのある奥壁には絶対にめり込まない）
+          if (camera.position.z < -81.0) camera.position.z = -81.0; 
         } else {
-          // トンネルの幅外にいる場合（山肌にぶつかる）
-          if (oldZ >= -49.5) {
-            camera.position.z = -49.5; // 正面から山に突っ込んだらブロック
+          // トンネルの壁の厚みに突っ込んだ際のブロック
+          if (oldZ >= -49.0) {
+            camera.position.z = -49.0;
           } else {
-            // トンネル内部の横壁に突っ込んだら、絶対に外に出さない
             if (camera.position.x <= -3.7) camera.position.x = -3.7;
             if (camera.position.x >= 3.7) camera.position.x = 3.7;
           }
@@ -935,7 +901,7 @@
 
       // マップ外周境界
       camera.position.x = Math.max(-68, Math.min(68, camera.position.x));
-      camera.position.z = Math.max(-82, Math.min(64, camera.position.z));
+      camera.position.z = Math.max(-81.5, Math.min(64, camera.position.z));
 
       // こくにいAI
       const vecToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
@@ -989,7 +955,6 @@
         if (bgmGainNode) bgmGainNode.gain.value = 0;
       }
 
-      // 当たり判定
       if (distToPlayer < 1.5) {
         triggerGameOver("こくにいに捕まった！");
       }
