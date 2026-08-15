@@ -21,8 +21,21 @@
     #start-btn { font-size: 1.3rem; padding: 16px 36px; background: #ff3333; color: #fff; box-shadow: 0 4px 15px rgba(255,51,51,0.5); margin-top: 15px; }
     #update-btn { margin-top: 15px; font-size: 0.85rem; padding: 8px 16px; background: #333; color: #aaa; border: 1px solid #555; border-radius: 15px; }
     .action-btn { font-size: 1.1rem; padding: 12px 24px; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    #ui { position: absolute; top: 15px; left: 15px; color: #fff; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; display: none; }
-    .ui-txt { font-weight: bold; margin-top: 2px; font-size: 0.95rem; }
+    
+    /* ★UIを文字なしのアイコンに一新！ */
+    #ui-top-left { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 10; display: none; pointer-events: none; }
+    .battery-container { display: flex; align-items: center; }
+    .battery-icon { width: 32px; height: 16px; border: 2px solid #fff; border-radius: 4px; position: relative; padding: 1px; box-sizing: border-box; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
+    .battery-icon::after { content: ''; position: absolute; top: 3px; right: -5px; width: 3px; height: 6px; background: #fff; border-radius: 0 2px 2px 0; }
+    .battery-level { height: 100%; background: #0f0; width: 100%; transition: width 0.2s linear, background-color 0.2s; border-radius: 1px; }
+    .stamina-container { display: flex; align-items: center; gap: 6px; }
+    .stamina-icon { font-size: 1.1rem; line-height: 1; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+    .stamina-bar-bg { width: 80px; height: 8px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; overflow: hidden; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
+    .stamina-level { height: 100%; background: #0ff; width: 100%; transition: width 0.1s linear; }
+    .parts-container { display: flex; gap: 4px; margin-top: 2px; }
+    .part-icon { width: 14px; height: 14px; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(0, 255, 102, 0.3); border-radius: 3px; box-sizing: border-box; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
+    .part-icon.active { background: #00ff66; border-color: #00ff66; box-shadow: 0 0 8px #00ff66; }
+    
     .game-btn { position: absolute; z-index: 50; display: none; touch-action: manipulation; }
     #light-btn { top: 15px; right: 15px; padding: 10px 18px; font-size: 0.9rem; background: rgba(255,255,255,0.85); color: #000; }
     #dash-btn { bottom: 25px; right: 25px; padding: 16px 28px; font-size: 1.1rem; background: rgba(255,140,0,0.85); color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
@@ -32,18 +45,28 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.5.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.6.0</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
   </div>
 
-  <div id="ui">
-    <h2 style="margin:0; font-size:1.1rem;">こくにいから逃げろ！</h2>
-    <div class="ui-txt" style="color:#00ff66; font-size:1.05rem;">💻 PCパーツ: <span id="parts-val">0</span> / 4</div>
-    <div class="ui-txt" style="color:#ffff00;">⚡ バッテリー: <span id="battery-val">100</span>%</div>
-    <div class="ui-txt" style="color:#00ffff;">🏃 スタミナ: <span id="stamina-val">100</span>%</div>
-    <div id="warning-text" style="font-weight:bold; margin-top:5px; display:none; font-size:0.85rem;"></div>
+  <!-- ★UIがアイコンだけのスッキリ仕様に！ -->
+  <div id="ui-top-left">
+    <div class="battery-container">
+      <div class="battery-icon"><div class="battery-level" id="bat-lv"></div></div>
+    </div>
+    <div class="stamina-container">
+      <span class="stamina-icon">🏃</span>
+      <div class="stamina-bar-bg"><div class="stamina-level" id="sta-lv"></div></div>
+    </div>
+    <div class="parts-container" id="parts-icons">
+      <div class="part-icon"></div>
+      <div class="part-icon"></div>
+      <div class="part-icon"></div>
+      <div class="part-icon"></div>
+    </div>
+    <div id="warning-text" style="color:#ff3333; font-weight:bold; margin-top:5px; display:none; font-size:0.85rem; text-shadow: 1px 1px 2px #000;"></div>
   </div>
 
   <button id="light-btn" class="btn game-btn">ライト ON</button>
@@ -100,7 +123,6 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
     
     const ambLight = new THREE.AmbientLight(0x181822, 0.12); scene.add(ambLight);
-    // 🔦 ライトの明るさを調整（18 -> 10）
     const flash = new THREE.SpotLight(0xfffae6, 10, 55, Math.PI/3, 0.6, 1.8); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
     const lLight = new THREE.PointLight(0xfffae6, 0.15, 5); camera.add(lLight); scene.add(camera);
 
@@ -222,12 +244,11 @@
     
     el('start-btn').onclick = () => {
       unlockAudio();
-      // 🧍 プレイヤーの身長（視点）を 1.6 から 1.8 に変更
       isRun=true; keys.yaw=0; keys.pitch=0; camera.position.set(0, 1.8, 25);
       pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
       spawn(bats,bG,bM); spawn(parts,partG,partM);
       el('start-screen').style.display='none';
-      el('ui').style.display='block';
+      el('ui-top-left').style.display='flex';
       if('ontouchstart' in window){ el('light-btn').style.display='block'; el('dash-btn').style.display='block'; }
       lastT=performance.now();
       animate();
@@ -263,8 +284,11 @@
       const tS = mDir.s + (keys['KeyD']||keys['ArrowRight']?1:0) - (keys['KeyA']||keys['ArrowLeft']?1:0);
       const isMv = tF!==0 || tS!==0, spd = (isDash||keys['ShiftLeft']?0.12:0.07);
 
-      if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); el('light-btn').innerText='ライト 0%'; } } el('battery-val').innerText=~~batt;
-      if(spd>0.1 && stam>0 && isMv){ stam-=dt*25; if(stam<=0){ stam=0; isDash=false; } } else if(stam<100) stam=Math.min(100, stam+dt*15); el('stamina-val').innerText=~~stam;
+      // UI更新（アイコン・ゲージ化）
+      if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); } } 
+      const batLv = el('bat-lv'); batLv.style.width = batt + '%'; batLv.style.backgroundColor = batt > 20 ? '#0f0' : '#f00';
+      if(spd>0.1 && stam>0 && isMv){ stam-=dt*25; if(stam<=0){ stam=0; isDash=false; } } else if(stam<100) stam=Math.min(100, stam+dt*15); 
+      el('sta-lv').style.width = stam + '%';
       
       const wTxt = el('warning-text');
       if(batt<=0){
@@ -277,22 +301,30 @@
         }
       } else {
         noBatt=0;
-        if(pCnt>=4){ wTxt.style.color='#0ff'; wTxt.style.display='block'; wTxt.innerText='⚡ パーツが揃った！トンネル奥のPCを起動しろ！'; }
+        if(pCnt>=4){ wTxt.style.color='#0ff'; wTxt.style.display='block'; wTxt.innerText='⚡ トンネル奥のPCを起動しろ！'; }
         else { wTxt.style.display='none'; }
       }
 
+      // ★ アイテム取得判定（高さを無視した平面距離に変更）
       [bats, parts].forEach((arr, idx) => {
         for(let i=arr.length-1; i>=0; i--){
           arr[i].rotation.y+=dt*(idx?3:2);
-          if(camera.position.distanceTo(arr[i].position)<1.5){
+          if(Math.hypot(camera.position.x - arr[i].position.x, camera.position.z - arr[i].position.z) < 1.5){
             scene.remove(arr[i]); arr.splice(i,1);
             if(!idx){ batt=100; setLight(true); spawn(bats,bG,bM); }
-            else{ pCnt++; el('parts-val').innerText=pCnt; }
+            else{ 
+              pCnt++; 
+              const pIcons = el('parts-icons').children;
+              for(let j=0; j<4; j++) if(j < pCnt) pIcons[j].classList.add('active');
+            }
           }
         }
       });
       
-      if(pCnt>=4 && camera.position.distanceTo(pcMon.position)<2.5) { isClr=true; if(document.exitPointerLock) document.exitPointerLock(); el('game-clear').style.display='flex'; return; }
+      // クリア判定も平面距離で
+      if(pCnt>=4 && Math.hypot(camera.position.x - pcMon.position.x, camera.position.z - pcMon.position.z) < 2.5) { 
+        isClr=true; if(document.exitPointerLock) document.exitPointerLock(); el('game-clear').style.display='flex'; return; 
+      }
 
       camera.rotation.set(keys.pitch, keys.yaw, 0, 'YXZ');
       const oX = camera.position.x, oZ = camera.position.z;
@@ -301,19 +333,15 @@
       for(let t of colls){ let dx=camera.position.x-t.x, dz=camera.position.z-t.z, d=Math.hypot(dx,dz), minD=t.r+0.3; if(d>0 && d<minD) { camera.position.x+=(dx/d)*(minD-d); camera.position.z+=(dz/d)*(minD-d); } }
       if(camera.position.z<60 && camera.position.z>-50 && !isGap(camera.position.z)) { if(oX>=-5&&oX<=5) camera.position.x=Math.max(-5,Math.min(5,camera.position.x)); else camera.position.x=oX>5?Math.max(5.3,camera.position.x):Math.min(-5.3,camera.position.x); }
       
-      // 🛑 修正されたトンネル壁の完全すり抜け防止
       if(camera.position.z<-49) {
         if(oZ>=-49 && Math.abs(camera.position.x)>=4.6) {
-          // トンネルの外から山の壁にぶつかった場合
           camera.position.z=-49;
         } else {
-          // トンネルの中にいる場合（壁にぶつかったら内側に留める！）
           camera.position.x = Math.max(-4.6, Math.min(4.6, camera.position.x));
           camera.position.z = Math.max(-84, camera.position.z);
         }
       }
 
-      // 🧍 プレイヤーの身長（1.8）に合わせてカメラY座標を固定
       camera.position.set(Math.max(-129,Math.min(129,camera.position.x)), 1.8, Math.max(-84,Math.min(129,camera.position.z)));
 
       const pVec = new THREE.Vector3().subVectors(camera.position, enemy.position); pVec.y=0; const pDist = pVec.length();
