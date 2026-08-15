@@ -32,7 +32,7 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.1.4</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.2.0</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
@@ -60,10 +60,12 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    document.getElementById('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
+    const el = id => document.getElementById(id);
+    el('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
+    
+    // 音声処理
     const bgm = new Audio('bgm.mp3'), jumpVoice = new Audio('voice.mp3'); bgm.loop = true;
     let audioCtx = null, bgmGain = null;
-
     function unlockAudio() {
       if (!audioCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -71,8 +73,7 @@
         bgmGain = audioCtx.createGain();
         bgmGain.gain.value = 0;
         const src = audioCtx.createMediaElementSource(bgm);
-        src.connect(bgmGain);
-        bgmGain.connect(audioCtx.destination);
+        src.connect(bgmGain); bgmGain.connect(audioCtx.destination);
       }
       if (audioCtx.state === 'suspended') audioCtx.resume();
       bgm.play().then(() => { bgm.pause(); bgm.currentTime = 0; }).catch(() => {});
@@ -82,8 +83,7 @@
     // 🎨 テクスチャ生成
     function makeTex(w, h, draw, repX=1, repY=1) {
       const c = document.createElement('canvas'); c.width = w; c.height = h;
-      draw(c.getContext('2d'));
-      const t = new THREE.CanvasTexture(c);
+      draw(c.getContext('2d')); const t = new THREE.CanvasTexture(c);
       if(repX!==1 || repY!==1){ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(repX,repY); }
       return t;
     }
@@ -94,7 +94,7 @@
     const texCliff = makeTex(512,512, ctx=>{ ctx.fillStyle='#0a0d08'; ctx.fillRect(0,0,512,512); for(let i=0;i<35000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*20)},${~~(Math.random()*20)+2},${~~(Math.random()*20)},0.7)`; ctx.fillRect(Math.random()*512,Math.random()*512,1.5+Math.random()*3,1.5+Math.random()*3); } ctx.strokeStyle='#040503'; for(let i=0;i<40;i++){ ctx.lineWidth=1+Math.random()*4; ctx.beginPath(); let cx=Math.random()*512,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<8;j++){ cx+=(Math.random()-0.5)*70; cy+=(Math.random()-0.5)*70; ctx.lineTo(cx,cy); } ctx.stroke(); }}, 4,2);
     const texFence = makeTex(128,128, ctx=>{ ctx.strokeStyle='#7a7c78'; ctx.lineWidth=2; ctx.beginPath(); for(let i=-128; i<=256; i+=16){ ctx.moveTo(i,0); ctx.lineTo(i+128,128); ctx.moveTo(i+128,0); ctx.lineTo(i,128); } ctx.stroke(); });
 
-    // 3Dセットアップ
+    // 3Dシーン構築
     const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x030305, 0.045);
     const camera = new THREE.PerspectiveCamera(90, innerWidth/innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
@@ -103,25 +103,21 @@
     const flash = new THREE.SpotLight(0xfffae6, 18, 55, Math.PI/3, 0.6, 1.8); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
     const lLight = new THREE.PointLight(0xfffae6, 0.15, 5); camera.add(lLight); scene.add(camera);
 
-    const el = id => document.getElementById(id);
-
     function setLight(on) {
-      light = on;
-      flash.visible = on;
-      lLight.visible = on;
-      ambLight.intensity = on ? 0.12 : 0.015;
+      light = on; flash.visible = on; lLight.visible = on; ambLight.intensity = on ? 0.12 : 0.015;
       el('light-btn').innerText = on ? 'ライト ON' : 'ライト OFF';
     }
 
     function addM(geo, mat, x, y, z, rx=0, ry=0, rz=0) { const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); scene.add(m); return m; }
     
-    // 地面・道路
+    // マテリアル定義
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: 0.95}), mRoad = new THREE.MeshStandardMaterial({map: texRoad, roughness: 0.9, metalness: 0});
-    addM(new THREE.PlaneGeometry(500,500), mGrass, 0,0,0, -Math.PI/2); addM(new THREE.PlaneGeometry(10,240), mRoad, 0,0.02,10, -Math.PI/2);
-
     const mGrd = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.5, roughness: 0.6}), mRust = new THREE.MeshStandardMaterial({color: 0x5a2d18, roughness: 0.9});
     const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
+
+    // 地形生成
+    addM(new THREE.PlaneGeometry(500,500), mGrass, 0,0,0, -Math.PI/2); addM(new THREE.PlaneGeometry(10,240), mRoad, 0,0.02,10, -Math.PI/2);
 
     // ガードレール
     const isGap = z => [{min:35,max:60},{min:0,max:18},{min:-35,max:-20}].some(g=> z>=g.min && z<=g.max);
@@ -147,18 +143,23 @@
     buildFence(-129.5, -49.5, -129.5, 129.5); buildFence(129.5, -49.5, 129.5, 129.5);
     buildFence(-129.5, 129.5, 129.5, 129.5);
 
-    // 山肌とトンネル
+    // 山肌
     addM(new THREE.BoxGeometry(80,30,45), mClf, -46,15,-73); addM(new THREE.BoxGeometry(80,30,45), mClf, 46,15,-73); addM(new THREE.BoxGeometry(12,22,45), mClf, 0,19,-73);
+
+    // トンネル内部構造
+    const tunnelGroup = new THREE.Group(); tunnelGroup.position.set(0, 0, -50);
     const arch = addM(new THREE.CylinderGeometry(5,5,35,32,1,true,0,Math.PI), mCon, 0,2,-67.5, Math.PI/2,Math.PI/2);
     addM(new THREE.BoxGeometry(0.5,2,35), mCon, -5.25,1,-67.5); addM(new THREE.BoxGeometry(0.5,2,35), mCon, 5.25,1,-67.5);
     addM(new THREE.BoxGeometry(11,8,1), mCon, 0,4,-85.5);
 
-    // 坑門
+    // トンネル入口のくり抜き壁
     const shp = new THREE.Shape(); shp.moveTo(-20,0); shp.lineTo(20,0); shp.lineTo(20,15); shp.lineTo(-20,15); shp.lineTo(-20,0);
     const hl = new THREE.Path(); hl.moveTo(-5,0); hl.lineTo(-5,2); hl.absarc(0,2,5,Math.PI,0,true); hl.lineTo(5,0); hl.lineTo(-5,0); shp.holes.push(hl);
     const fGeo = new THREE.ExtrudeGeometry(shp, {depth:0.5, bevelEnabled:false});
     for(let i=0; i<fGeo.attributes.position.count; i++) fGeo.attributes.uv.setXY(i, fGeo.attributes.position.getX(i)/8, fGeo.attributes.position.getY(i)/8);
     addM(fGeo, mCon, 0,0,-50.25);
+    
+    // 入口の柱と梁
     addM(new THREE.BoxGeometry(1,9,1.5), mCon, -5.5,4.5,-49.5); addM(new THREE.BoxGeometry(1,9,1.5), mCon, 5.5,4.5,-49.5);
     addM(new THREE.BoxGeometry(12,1.5,1.6), new THREE.MeshStandardMaterial({map: texWarn, roughness: 0.8}), 0,9.25,-49.5);
 
@@ -167,7 +168,7 @@
     addM(new THREE.BoxGeometry(2,1,1), new THREE.MeshStandardMaterial({color:0x22150a,roughness:0.9}), 0,0.5,-83.5);
     const pcMon = addM(new THREE.BoxGeometry(0.8,0.6,0.1), new THREE.MeshStandardMaterial({color:0x111111,emissive:0x002233}), 0,1.3,-83.5);
 
-    // コリジョンと木
+    // 木の配置とコリジョン
     const colls = [];
     function addTree(x, z, s=1, r=0.7) {
       if(z > -48 && Math.hypot(x,z) < 6) return;
@@ -177,19 +178,19 @@
     for(let i=0;i<120;i++){ let x=(Math.random()-0.5)*140, z=(Math.random()-0.5)*120; if(Math.abs(x)<7) x+=x>=0?8:-8; if(z>-48) addTree(x,z); }
     for(let i=0;i<350;i++){ let r=75+Math.random()*120, a=Math.random()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r; if(!(z<-45 && Math.abs(x)<20)) addTree(x,z,1.2,1.0); }
 
-    // アイテム
-    const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0x888800}), partG=new THREE.BoxGeometry(0.5,0.2,0.4), partM=new THREE.MeshStandardMaterial({color:0x00ff66,emissive:0x00aa44});
-    function spawn(arr, geo, mat){ for(let i=0;i<(arr===parts?4:8);i++){ let x=(Math.random()-0.5)*(arr===parts?90:110), z=(Math.random()-0.5)*100; if(z<-45) z=0; arr.push(addM(geo, mat, x, 0.3, z)); } }
-
     // 敵
     const enemy = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.TextureLoader().load('kokunii.PNG')})); enemy.scale.set(3.5,3.5,1); scene.add(enemy);
 
-    // ★★★ 今回追加で復活・整理させた変数群 ★★★
+    // ★★★ ゲームの根幹となる変数定義 ★★★
     let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
-    const keys = { yaw: 0, pitch: 0 }; // ←これがないとゲームが一切動かない致命的エラーになっていました！
+    const keys = { yaw: 0, pitch: 0 };
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
+
+    // アイテムスポーン関数
+    const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0x888800}), partG=new THREE.BoxGeometry(0.5,0.2,0.4), partM=new THREE.MeshStandardMaterial({color:0x00ff66,emissive:0x00aa44});
+    function spawn(arr, geo, mat){ for(let i=0;i<(arr===parts?4:8);i++){ let x=(Math.random()-0.5)*(arr===parts?90:110), z=(Math.random()-0.5)*100; if(z<-45) z=0; arr.push(addM(geo, mat, x, 0.3, z)); } }
     
-    // イベント類
+    // イベントリスナー
     renderer.domElement.addEventListener('click', () => { if (isRun && !isOver && !isClr && !('ontouchstart' in window)) renderer.domElement.requestPointerLock(); });
     document.addEventListener('mousemove', e => { if(document.pointerLockElement) { keys.yaw -= e.movementX*0.0025; keys.pitch = Math.max(-1.2, Math.min(1.2, keys.pitch - e.movementY*0.0025)); }});
     ['mousedown','touchstart'].forEach(e => {
@@ -231,6 +232,7 @@
       for(let t of e.changedTouches){ if(t.identifier===mTch){ mTch=null; mDir={f:0,s:0}; } if(t.identifier===lTch) lTch=null; }
     });
 
+    // 描画ループ
     function animate() {
       if(!isRun || isOver || isClr) return; requestAnimationFrame(animate);
       const dt = (performance.now() - lastT) / 1000; lastT = performance.now();
