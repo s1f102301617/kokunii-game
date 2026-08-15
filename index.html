@@ -32,7 +32,7 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.0.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.1.1</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
@@ -64,7 +64,22 @@
     const bgm = new Audio('bgm.mp3'), jumpVoice = new Audio('voice.mp3'); bgm.loop = true;
     let audioCtx = null, bgmGain = null;
 
-    // 🎨 テクスチャ生成を1つの関数に共通化（大幅カット！）
+    function unlockAudio() {
+      if (!audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtx();
+        bgmGain = audioCtx.createGain();
+        bgmGain.gain.value = 0;
+        const src = audioCtx.createMediaElementSource(bgm);
+        src.connect(bgmGain);
+        bgmGain.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      bgm.play().then(() => { bgm.pause(); bgm.currentTime = 0; }).catch(() => {});
+      jumpVoice.play().then(() => { jumpVoice.pause(); jumpVoice.currentTime = 0; }).catch(() => {});
+    }
+
+    // 🎨 テクスチャ生成
     function makeTex(w, h, draw, repX=1, repY=1) {
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       draw(c.getContext('2d'));
@@ -73,35 +88,44 @@
       return t;
     }
     const texGrass = makeTex(512,512, ctx=>{ ctx.fillStyle='#0a0f07'; ctx.fillRect(0,0,512,512); for(let i=0;i<15000;i++){ ctx.fillStyle=Math.random()>0.6?'#050804':(Math.random()>0.2?'#101a0d':'#17140e'); ctx.fillRect(Math.random()*512,Math.random()*512,2,3); }}, 40,40);
-    const texRoad = makeTex(256,512, ctx=>{ ctx.fillStyle='#141416'; ctx.fillRect(0,0,256,512); for(let i=0;i<8000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*25)},${~~(Math.random()*25)},${~~(Math.random()*25)},0.2)`; ctx.fillRect(Math.random()*256,Math.random()*512,2,2);} ctx.strokeStyle='#08080a'; ctx.lineWidth=2; for(let i=0;i<15;i++){ ctx.beginPath(); let cx=Math.random()*256,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<5;j++){ cx+=(Math.random()-0.5)*30; cy+=(Math.random()-0.5)*30; ctx.lineTo(cx,cy); } ctx.stroke(); } ctx.fillStyle='rgba(160,160,160,0.35)'; ctx.fillRect(122,40,12,160); ctx.fillRect(122,300,12,160); }, 1,15);
+    const texRoad = makeTex(256,512, ctx=>{ ctx.fillStyle='#141416'; ctx.fillRect(0,0,256,512); for(let i=0;i<8000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*25)},${~~(Math.random()*25)},${~~(Math.random()*25)},0.2)`; ctx.fillRect(Math.random()*256,Math.random()*512,2,2);} ctx.strokeStyle='#08080a'; ctx.lineWidth=2; for(let i=0;i<15;i++){ ctx.beginPath(); let cx=Math.random()*256,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<5;j++){ cx+=(Math.random()-0.5)*30; cy+=(Math.random()-0.5)*30; ctx.lineTo(cx,cy); } ctx.stroke(); } ctx.fillStyle='rgba(160,160,160,0.35)'; ctx.fillRect(122,40,12,160); ctx.fillRect(122,300,12,160); }, 1,20);
     const texConc = makeTex(256,256, ctx=>{ ctx.fillStyle='#1c1c20'; ctx.fillRect(0,0,256,256); for(let i=0;i<8000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*30)},${~~(Math.random()*30)},${~~(Math.random()*30)},0.25)`; ctx.fillRect(Math.random()*256,Math.random()*256,2,2); }}, 2,6);
     const texWarn = makeTex(512,128, ctx=>{ ctx.fillStyle='#222225'; ctx.fillRect(0,0,512,128); ctx.fillStyle='#9e7308'; for(let i=-512; i<1024; i+=64){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+32,0); ctx.lineTo(i-32,128); ctx.lineTo(i-64,128); ctx.fill(); } });
     const texCliff = makeTex(512,512, ctx=>{ ctx.fillStyle='#0a0d08'; ctx.fillRect(0,0,512,512); for(let i=0;i<35000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*20)},${~~(Math.random()*20)+2},${~~(Math.random()*20)},0.7)`; ctx.fillRect(Math.random()*512,Math.random()*512,1.5+Math.random()*3,1.5+Math.random()*3); } ctx.strokeStyle='#040503'; for(let i=0;i<40;i++){ ctx.lineWidth=1+Math.random()*4; ctx.beginPath(); let cx=Math.random()*512,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<8;j++){ cx+=(Math.random()-0.5)*70; cy+=(Math.random()-0.5)*70; ctx.lineTo(cx,cy); } ctx.stroke(); }}, 4,2);
+    const texFence = makeTex(128,128, ctx=>{ ctx.strokeStyle='#7a7c78'; ctx.lineWidth=2; ctx.beginPath(); for(let i=-128; i<=256; i+=16){ ctx.moveTo(i,0); ctx.lineTo(i+128,128); ctx.moveTo(i+128,0); ctx.lineTo(i,128); } ctx.stroke(); });
 
     // 3Dセットアップ
     const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x030305, 0.045);
     const camera = new THREE.PerspectiveCamera(90, innerWidth/innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
     
-    // ライト
-    scene.add(new THREE.AmbientLight(0x181822, 0.12));
+    const ambLight = new THREE.AmbientLight(0x181822, 0.12); scene.add(ambLight);
     const flash = new THREE.SpotLight(0xfffae6, 18, 55, Math.PI/3, 0.6, 1.8); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
     const lLight = new THREE.PointLight(0xfffae6, 0.15, 5); camera.add(lLight); scene.add(camera);
 
-    // メッシュ追加の共通関数
+    const el = id => document.getElementById(id);
+
+    function setLight(on) {
+      light = on;
+      flash.visible = on;
+      lLight.visible = on;
+      ambLight.intensity = on ? 0.12 : 0.015;
+      el('light-btn').innerText = on ? 'ライト ON' : 'ライト OFF';
+    }
+
     function addM(geo, mat, x, y, z, rx=0, ry=0, rz=0) { const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); scene.add(m); return m; }
     
     // 地面・道路
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: 0.95}), mRoad = new THREE.MeshStandardMaterial({map: texRoad, roughness: 0.9, metalness: 0});
-    addM(new THREE.PlaneGeometry(500,500), mGrass, 0,0,0, -Math.PI/2); addM(new THREE.PlaneGeometry(10,180), mRoad, 0,0.02,-20, -Math.PI/2);
+    addM(new THREE.PlaneGeometry(500,500), mGrass, 0,0,0, -Math.PI/2); addM(new THREE.PlaneGeometry(10,240), mRoad, 0,0.02,10, -Math.PI/2);
 
-    // 構造物マテリアル
     const mGrd = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.5, roughness: 0.6}), mRust = new THREE.MeshStandardMaterial({color: 0x5a2d18, roughness: 0.9});
     const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
+    const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
 
     // ガードレール
     const isGap = z => [{min:35,max:60},{min:0,max:18},{min:-35,max:-20}].some(g=> z>=g.min && z<=g.max);
-    for (let z=-45; z<=60; z+=6) {
+    for (let z=-45; z<=120; z+=6) {
       if(isGap(z)){ if(Math.random()>0.3) addM(new THREE.BoxGeometry(0.2,0.5,4.5), mRust, Math.random()>0.5?5.3:-5.3, 0.2, z, 0, (Math.random()-0.5)*0.8, (Math.random()-0.5)*1.2); continue; }
       addM(new THREE.BoxGeometry(0.15,0.5,5.8), mGrd, -5.2,0.8,z); addM(new THREE.BoxGeometry(0.15,0.5,5.8), mGrd, 5.2,0.8,z);
     }
@@ -110,13 +134,26 @@
     const bGrp = new THREE.Group(); bGrp.position.set(0,0,65); bGrp.add(new THREE.Mesh(new THREE.BoxGeometry(10,1.2,0.2), new THREE.MeshStandardMaterial({color:0x992222,roughness:0.7})).translateY(1.2));
     const pM=new THREE.MeshStandardMaterial({color:0x888888,metalness:0.8}), pG=new THREE.CylinderGeometry(0.1,0.1,2.2); bGrp.add(new THREE.Mesh(pG,pM).translateX(-4.5).translateY(1.1), new THREE.Mesh(pG,pM).translateX(4.5).translateY(1.1)); scene.add(bGrp);
 
+    // 金網フェンス
+    function buildFence(x1, z1, x2, z2) {
+      const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), ang=Math.atan2(dx,dz);
+      const fMat=mFence.clone(); fMat.map=fMat.map.clone(); fMat.map.repeat.set(len/4, 2);
+      const f=addM(new THREE.PlaneGeometry(len,4), fMat, x1+dx/2, 2, z1+dz/2); f.rotation.y = ang+Math.PI/2;
+      const tM=new THREE.MeshStandardMaterial({color:0x333, metalness:0.8}), tG=new THREE.CylinderGeometry(0.08,0.08,4);
+      for(let i=0; i<=len; i+=4) addM(tG, tM, x1+dx*(i/len), 2, z1+dz*(i/len));
+      const bar=addM(new THREE.BoxGeometry(len,0.1,0.1), tM, x1+dx/2, 4, z1+dz/2); bar.rotation.y = ang+Math.PI/2;
+    }
+    buildFence(-129.5, -49.5, -84, -49.5); buildFence(84, -49.5, 129.5, -49.5);
+    buildFence(-129.5, -49.5, -129.5, 129.5); buildFence(129.5, -49.5, 129.5, 129.5);
+    buildFence(-129.5, 129.5, 129.5, 129.5);
+
     // 山肌とトンネル
     addM(new THREE.BoxGeometry(80,30,45), mClf, -46,15,-73); addM(new THREE.BoxGeometry(80,30,45), mClf, 46,15,-73); addM(new THREE.BoxGeometry(12,22,45), mClf, 0,19,-73);
     const arch = addM(new THREE.CylinderGeometry(5,5,35,32,1,true,0,Math.PI), mCon, 0,2,-67.5, Math.PI/2,Math.PI/2);
     addM(new THREE.BoxGeometry(0.5,2,35), mCon, -5.25,1,-67.5); addM(new THREE.BoxGeometry(0.5,2,35), mCon, 5.25,1,-67.5);
     addM(new THREE.BoxGeometry(11,8,1), mCon, 0,4,-85.5);
 
-    // 坑門（ポータル）
+    // 坑門
     const shp = new THREE.Shape(); shp.moveTo(-20,0); shp.lineTo(20,0); shp.lineTo(20,15); shp.lineTo(-20,15); shp.lineTo(-20,0);
     const hl = new THREE.Path(); hl.moveTo(-5,0); hl.lineTo(-5,2); hl.absarc(0,2,5,Math.PI,0,true); hl.lineTo(5,0); hl.lineTo(-5,0); shp.holes.push(hl);
     const fGeo = new THREE.ExtrudeGeometry(shp, {depth:0.5, bevelEnabled:false});
@@ -128,40 +165,49 @@
     // 非常灯・PC
     [-58,-68,-78].forEach(z=>{ addM(new THREE.BoxGeometry(0.3,0.4,0.2), new THREE.MeshBasicMaterial({color:0xff6600}), -4.8,4,z); const l=new THREE.PointLight(0xff6600,1.5,12); l.position.set(-4.4,4,z); scene.add(l); });
     addM(new THREE.BoxGeometry(2,1,1), new THREE.MeshStandardMaterial({color:0x22150a,roughness:0.9}), 0,0.5,-83.5);
-    addM(new THREE.BoxGeometry(0.8,0.6,0.1), new THREE.MeshStandardMaterial({color:0x111111,emissive:0x002233}), 0,1.3,-83.5);
+    const pcMon = addM(new THREE.BoxGeometry(0.8,0.6,0.1), new THREE.MeshStandardMaterial({color:0x111111,emissive:0x002233}), 0,1.3,-83.5);
 
     // コリジョンと木
-    const colls = []; for(let x=-80; x<=80; x+=4) if(Math.abs(x)>5) colls.push({x, z:-48.5, r:2});
+    const colls = [];
     function addTree(x, z, s=1, r=0.7) {
       if(z > -48 && Math.hypot(x,z) < 6) return;
       const t = new THREE.Group(); t.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.5,3.5,6), new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.9})).translateY(1.75), new THREE.Mesh(new THREE.ConeGeometry(2.2,5.5,6), new THREE.MeshStandardMaterial({color:0x071405,roughness:0.8})).translateY(4.8));
       t.scale.set(s,s,s); t.position.set(x,0,z); scene.add(t); colls.push({x, z, r});
     }
     for(let i=0;i<120;i++){ let x=(Math.random()-0.5)*140, z=(Math.random()-0.5)*120; if(Math.abs(x)<7) x+=x>=0?8:-8; if(z>-48) addTree(x,z); }
-    for(let i=0;i<250;i++){ let r=75+Math.random()*80, a=Math.random()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r; if(!(z<-45 && Math.abs(x)<20)) addTree(x,z,1.2,1.0); }
+    for(let i=0;i<350;i++){ let r=75+Math.random()*120, a=Math.random()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r; if(!(z<-45 && Math.abs(x)<20)) addTree(x,z,1.2,1.0); }
 
     // アイテム
-    const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xfff00,emissive:0x88800}), pG=new THREE.BoxGeometry(0.5,0.2,0.4), pM=new THREE.MeshStandardMaterial({color:0x0f66,emissive:0x0a44});
+    const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0x888800}), pG=new THREE.BoxGeometry(0.5,0.2,0.4), pM=new THREE.MeshStandardMaterial({color:0x00ff66,emissive:0x00aa44});
     function spawn(arr, geo, mat){ for(let i=0;i<(arr===parts?4:8);i++){ let x=(Math.random()-0.5)*(arr===parts?90:110), z=(Math.random()-0.5)*100; if(z<-45) z=0; arr.push(addM(geo, mat, x, 0.3, z)); } }
 
     // 敵
     const enemy = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.TextureLoader().load('kokunii.PNG')})); enemy.scale.set(3.5,3.5,1); scene.add(enemy);
 
-    // 変数
     let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
     
-    // イベント
-    const el = id => document.getElementById(id);
     document.addEventListener('mousemove', e => { if(document.pointerLockElement) { keys.yaw -= e.movementX*0.0025; keys.pitch = Math.max(-1.2, Math.min(1.2, keys.pitch - e.movementY*0.0025)); }});
     ['mousedown','touchstart'].forEach(e => {
       el('light-btn').addEventListener(e, ev=>{ ev.preventDefault(); ev.stopPropagation(); if(isRun && batt>0) setLight(!light); }, {passive:false});
       el('dash-btn').addEventListener(e, ev=>{ ev.preventDefault(); ev.stopPropagation(); if(isRun && stam>0) isDash=true; }, {passive:false});
     });
     ['mouseup','touchend','touchcancel'].forEach(e => el('dash-btn').addEventListener(e, ev=>{ ev.preventDefault(); isDash=false; }));
-    el('start-btn').onclick = () => { if(!audioCtx) unlockAudio(); isRun=true; keys.yaw=0; keys.pitch=0; camera.position.set(0,1.6,25); pTgt.set((Math.random()-0.5)*110,1.75,(Math.random()-0.5)*90); spawn(bats,bG,bM); spawn(parts,pG,pM); el('start-screen').style.display='none'; el('ui').style.display='block'; if('ontouchstart' in window){ el('light-btn').style.display='block'; el('dash-btn').style.display='block'; } lastT=performance.now(); animate(); };
+    
+    el('start-btn').onclick = () => {
+      unlockAudio();
+      isRun=true; keys.yaw=0; keys.pitch=0; camera.position.set(0,1.6,25);
+      pTgt.set((Math.random()-0.5)*250,1.75,(Math.random()-0.5)*250);
+      spawn(bats,bG,bM); spawn(parts,pG,pM);
+      el('start-screen').style.display='none';
+      el('ui').style.display='block';
+      if('ontouchstart' in window){ el('light-btn').style.display='block'; el('dash-btn').style.display='block'; }
+      lastT=performance.now();
+      animate();
+    };
 
-    // 操作
-    window.addEventListener('keydown', e => { keys[e.code]=true; if(e.code==='KeyF' && isRun && batt>0) setLight(!light); }); window.addEventListener('keyup', e => keys[e.code]=false);
+    window.addEventListener('keydown', e => { keys[e.code]=true; if(e.code==='KeyF' && isRun && batt>0) setLight(!light); });
+    window.addEventListener('keyup', e => keys[e.code]=false);
+
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0}; keys.yaw=0; keys.pitch=0;
     window.addEventListener('touchstart', e=>{ for(let t of e.changedTouches){ if(t.clientX<innerWidth/2 && !mTch){ mTch=t.identifier; mSt={x:t.clientX,y:t.clientY}; } else if(t.clientX>=innerWidth/2 && !lTch && !e.target.closest('button')){ lTch=t.identifier; lSt={x:t.clientX,y:t.clientY}; } }});
     window.addEventListener('touchmove', e=>{ for(let t of e.changedTouches){ if(t.identifier===mTch){ mDir.s=Math.min(Math.max((t.clientX-mSt.x)/40,-1),1); mDir.f=Math.min(Math.max(-(t.clientY-mSt.y)/40,-1),1); } else if(t.identifier===lTch){ keys.yaw-=(t.clientX-lSt.x)*0.005; keys.pitch=Math.max(-1.2,Math.min(1.2,keys.pitch-(t.clientY-lSt.y)*0.005)); lSt={x:t.clientX,y:t.clientY}; } }});
@@ -180,7 +226,7 @@
       if(batt<=0){ noBatt+=dt; el('warning-text').style.display='block'; el('warning-text').innerText=`⚠️ 闇の中！ ${(Math.max(0,5-noBatt)).toFixed(1)}秒で急襲！`; if(noBatt>=5){ enemy.position.copy(camera.position).add(new THREE.Vector3(0,0,-1.2).applyAxisAngle(new THREE.Vector3(0,1,0), keys.yaw)); enemy.position.y=1.6; isOver=true; el('game-over').style.display='flex'; return; } } else { noBatt=0; el('warning-text').style.display='none'; }
 
       [bats, parts].forEach((arr, idx) => { for(let i=arr.length-1; i>=0; i--){ arr[i].rotation.y+=dt*(idx?3:2); if(camera.position.distanceTo(arr[i].position)<1.5){ scene.remove(arr[i]); arr.splice(i,1); if(!idx){ batt=100; setLight(true); spawn(bats,bG,bM); }else{ pCnt++; el('parts-val').innerText=pCnt; if(pCnt>=4) el('warning-text').outerHTML = '<div style="color:#0ff; font-weight:bold; margin-top:5px;">⚡ パーツが揃った！トンネル奥のPCを起動しろ！</div>'; } } } });
-      if(pCnt>=4 && camera.position.distanceTo(pcGroup.position)<2.5) { isClr=true; el('game-clear').style.display='flex'; return; }
+      if(pCnt>=4 && camera.position.distanceTo(pcMon.position)<2.5) { isClr=true; el('game-clear').style.display='flex'; return; }
 
       camera.rotation.set(keys.pitch, keys.yaw, 0, 'YXZ');
       const oX = camera.position.x, oZ = camera.position.z;
@@ -189,12 +235,12 @@
       for(let t of colls){ let dx=camera.position.x-t.x, dz=camera.position.z-t.z, d=Math.hypot(dx,dz), minD=t.r+0.3; if(d>0 && d<minD) { camera.position.x+=(dx/d)*(minD-d); camera.position.z+=(dz/d)*(minD-d); } }
       if(camera.position.z<60 && camera.position.z>-50 && !isGap(camera.position.z)) { if(oX>=-5&&oX<=5) camera.position.x=Math.max(-5,Math.min(5,camera.position.x)); else camera.position.x=oX>5?Math.max(5.3,camera.position.x):Math.min(-5.3,camera.position.x); }
       if(camera.position.z<-49) { if(camera.position.x>-4.6 && camera.position.x<4.6) camera.position.z=Math.max(-84,camera.position.z); else { if(oZ>=-49) camera.position.z=-49; else camera.position.x=oX>0?Math.max(4.6,camera.position.x):Math.min(-4.6,camera.position.x); } }
-      camera.position.set(Math.max(-130,Math.min(130,camera.position.x)), 1.6, Math.max(-84,Math.min(130,camera.position.z)));
+      camera.position.set(Math.max(-129,Math.min(129,camera.position.x)), 1.6, Math.max(-84,Math.min(129,camera.position.z)));
 
       const pVec = new THREE.Vector3().subVectors(camera.position, enemy.position); pVec.y=0; const pDist = pVec.length();
-      if(eSt==='P' && (pDist<7 || (pDist<18 && eDir.angleTo(pVec.clone().normalize())<Math.PI/3))) eSt='C'; else if(eSt==='C' && pDist>20) { eSt='P'; pTgt.set((Math.random()-0.5)*110,1.75,(Math.random()-0.5)*90); }
+      if(eSt==='P' && (pDist<7 || (pDist<18 && eDir.angleTo(pVec.clone().normalize())<Math.PI/3))) eSt='C'; else if(eSt==='C' && pDist>20) { eSt='P'; pTgt.set((Math.random()-0.5)*250,1.75,(Math.random()-0.5)*250); }
       let moveDir = eSt==='C' ? pVec.clone().normalize() : new THREE.Vector3().subVectors(pTgt,enemy.position).setY(0).normalize();
-      if(eSt==='P' && enemy.position.distanceTo(pTgt)<1.5) pTgt.set((Math.random()-0.5)*110,1.75,(Math.random()-0.5)*90);
+      if(eSt==='P' && enemy.position.distanceTo(pTgt)<1.5) pTgt.set((Math.random()-0.5)*250,1.75,(Math.random()-0.5)*250);
       enemy.position.addScaledVector(moveDir, eSt==='C'?0.078:0.035); eDir.copy(moveDir);
 
       if(eSt==='C' && pDist<18){ if(bgm.paused) bgm.play().catch(()=>{}); if(bgmGain) bgmGain.gain.value=Math.pow(Math.max(0,1-pDist/18),1.2)*0.8; } else { if(!bgm.paused){ bgm.pause(); bgm.currentTime=0;} if(bgmGain) bgmGain.gain.value=0; }
