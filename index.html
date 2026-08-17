@@ -22,7 +22,7 @@
     #update-btn { margin-top: 15px; font-size: 0.85rem; padding: 8px 16px; background: #333; color: #aaa; border: 1px solid #555; border-radius: 15px; }
     .action-btn { font-size: 1.1rem; padding: 12px 24px; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     
-    /* 相談して決定したスッキリUI */
+    /* スッキリUI */
     #ui-top-left { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 10; display: none; pointer-events: none; }
     .battery-container { display: flex; align-items: center; }
     .battery-icon { width: 32px; height: 16px; border: 2px solid #fff; border-radius: 4px; position: relative; padding: 1px; box-sizing: border-box; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
@@ -45,7 +45,7 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v5.1.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v5.2.0</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
@@ -75,16 +75,22 @@
     const el = id => document.getElementById(id);
     el('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
     
-    // 🎵 音声処理（環境音、追跡BGM、ゲームオーバー音、足音すべて連動）
-    const bgmEnv = new Audio('夏の田舎の夜.mp3'); bgmEnv.loop = true; bgmEnv.volume = 0.5;
-    const bgmChase = new Audio('bgm.mp3'); bgmChase.loop = true;
+    // 🎵 音声処理の完全修正版
+    const bgmEnv = new Audio('夏の田舎の夜.mp3'); bgmEnv.volume = 0.5;
+    const bgmChase = new Audio('bgm.mp3');
     const overVoice = new Audio('夏の山2.mp3');
-    
-    const stepRoadWalk = new Audio('アスファルトの上を歩く1.mp3'); stepRoadWalk.loop = true; stepRoadWalk.volume = 0.6;
-    const stepRoadDash = new Audio('アスファルトの上を歩く2.mp3'); stepRoadDash.loop = true; stepRoadDash.volume = 0.9;
-    const stepGrass = new Audio('芝生の上を歩く.mp3'); stepGrass.loop = true; stepGrass.volume = 0.7;
+    const stepRoadWalk = new Audio('アスファルトの上を歩く1.mp3'); stepRoadWalk.volume = 0.6;
+    const stepRoadDash = new Audio('アスファルトの上を歩く2.mp3'); stepRoadDash.volume = 0.9;
+    const stepGrass = new Audio('芝生の上を歩く.mp3'); stepGrass.volume = 0.7;
+
+    // 🔄 スマホでも確実にループさせるための強制イベント設定
+    [bgmEnv, bgmChase, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => {
+      a.loop = true;
+      a.addEventListener('ended', function() { this.currentTime = 0; this.play(); }, false);
+    });
 
     let audioCtx = null, chaseGain = null, activeStep = null;
+    
     function unlockAudio() {
       if (!audioCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -94,9 +100,9 @@
         srcChase.connect(chaseGain); chaseGain.connect(audioCtx.destination);
       }
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      [bgmEnv, bgmChase, overVoice, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => {
-        a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-      });
+      
+      // ⚠️ バグの元だった「一瞬再生して止める」処理を廃止し、安全に読み込むだけに修正
+      [overVoice, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => a.load());
     }
 
     // 🎨 テクスチャ生成
@@ -236,6 +242,7 @@
     const keys = { yaw: 0, pitch: 0 };
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
     
+    // イベントリスナー
     renderer.domElement.addEventListener('click', () => { if (isRun && !isOver && !isClr && !('ontouchstart' in window)) renderer.domElement.requestPointerLock(); });
     document.addEventListener('mousemove', e => { if(document.pointerLockElement) { keys.yaw -= e.movementX*0.0025; keys.pitch = Math.max(-1.2, Math.min(1.2, keys.pitch - e.movementY*0.0025)); }});
     ['mousedown','touchstart'].forEach(e => {
@@ -244,8 +251,13 @@
     });
     ['mouseup','touchend','touchcancel'].forEach(e => el('dash-btn').addEventListener(e, ev=>{ ev.preventDefault(); isDash=false; }));
     
+    // 🎮 ゲーム開始時の処理（BGM・足音の確実な初期化）
     el('start-btn').onclick = () => {
-      unlockAudio(); bgmEnv.play().catch(()=>{});
+      unlockAudio(); 
+      // メイン環境音と追跡BGMをスタートさせる
+      bgmEnv.currentTime = 0; bgmEnv.play().catch(()=>{});
+      bgmChase.currentTime = 0; bgmChase.play().catch(()=>{});
+
       isRun=true; keys.yaw=0; keys.pitch=0; camera.position.set(0, 1.8, 25);
       pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
       spawn(bats,bG,bM); spawn(parts,partG,partM);
@@ -292,7 +304,7 @@
         camera.position.y = 1.8 + Math.sin(headBobTime) * (spd > 0.1 ? 0.08 : 0.04);
       } else { camera.position.y = 1.8; }
 
-      // 👣 足音制御
+      // 👣 足音の完全制御（遅延・衝突バグ解消版）
       if(isMv) {
         let onRoad = Math.abs(camera.position.x) <= 5.5; 
         let targetStep = onRoad ? (spd > 0.1 ? stepRoadDash : stepRoadWalk) : stepGrass;
@@ -302,10 +314,15 @@
         if(activeStep !== targetStep) {
           if(activeStep) activeStep.pause();
           activeStep = targetStep;
-          activeStep.play().catch(()=>{});
+          const playPromise = activeStep.play();
+          if (playPromise !== undefined) playPromise.catch(()=>{});
         }
       } else {
-        if(activeStep) { activeStep.pause(); activeStep = null; }
+        if(activeStep) { 
+          activeStep.pause(); 
+          activeStep.currentTime = 0; // 止まったら必ず再生位置をリセット
+          activeStep = null; 
+        }
       }
 
       // UI更新
@@ -355,16 +372,7 @@
 
       for(let t of colls){ let dx=camera.position.x-t.x, dz=camera.position.z-t.z, d=Math.hypot(dx,dz), minD=t.r+0.3; if(d>0 && d<minD) { camera.position.x+=(dx/d)*(minD-d); camera.position.z+=(dz/d)*(minD-d); } }
       if(camera.position.z<60 && camera.position.z>-50 && !isGap(camera.position.z)) { if(oX>=-5&&oX<=5) camera.position.x=Math.max(-5,Math.min(5,camera.position.x)); else camera.position.x=oX>5?Math.max(5.3,camera.position.x):Math.min(-5.3,camera.position.x); }
-      
-      if(camera.position.z<-49) {
-        if(oZ>=-49 && Math.abs(camera.position.x)>=4.6) {
-          camera.position.z=-49;
-        } else {
-          camera.position.x = Math.max(-4.6, Math.min(4.6, camera.position.x));
-          camera.position.z = Math.max(-84, camera.position.z);
-        }
-      }
-
+      if(camera.position.z<-49) { if(camera.position.x>-4.6 && camera.position.x<4.6) camera.position.z=Math.max(-84,camera.position.z); else { if(oZ>=-49) camera.position.z=-49; else camera.position.x=oX>0?Math.max(4.6,camera.position.x):Math.min(-4.6,camera.position.x); } }
       camera.position.set(Math.max(-129,Math.min(129,camera.position.x)), camera.position.y, Math.max(-84,Math.min(129,camera.position.z)));
 
       // 👁️📈 こくにいAI
@@ -384,17 +392,14 @@
 
       let moveDir = eSt==='C' ? pVec.clone().normalize() : new THREE.Vector3().subVectors(pTgt,enemy.position).setY(0).normalize();
       if(eSt==='P' && enemy.position.distanceTo(pTgt)<1.5) pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
-      
       enemy.position.addScaledVector(moveDir, eSt==='C'?currentChaseSpeed:0.035); 
       enemy.position.y = 1.85; 
       eDir.copy(moveDir);
 
-      // ⚠️ 追跡BGMの再生（近づくと徐々に大きくなる）
+      // ⚠️ 追跡BGMの制御
       if(eSt==='C' && pDist<18){ 
-        if(bgmChase.paused) { bgmChase.play().catch(()=>{}); } 
         if(chaseGain) chaseGain.gain.value = Math.pow(Math.max(0, 1 - pDist/18), 1.2) * 0.8; 
       } else { 
-        if(!bgmChase.paused){ bgmChase.pause(); bgmChase.currentTime = 0; } 
         if(chaseGain) chaseGain.gain.value = 0; 
       }
 
@@ -404,9 +409,14 @@
 
     function triggerGameOver(reason) {
       isOver = true;
-      if(activeStep) activeStep.pause();
-      bgmEnv.pause(); bgmChase.pause();
+      if(activeStep) { activeStep.pause(); activeStep = null; }
+      bgmEnv.pause(); 
+      bgmChase.pause();
+      
+      // ゲームオーバー音の再生
+      overVoice.currentTime = 0;
       overVoice.play().catch(()=>{});
+      
       if(document.exitPointerLock) document.exitPointerLock();
       el('death-reason').innerText = reason;
       el('game-over').style.display = 'flex';
@@ -414,4 +424,3 @@
   </script>
 </body>
 </html>
-
