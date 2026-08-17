@@ -45,7 +45,7 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v5.2.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v5.3.0</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
@@ -75,34 +75,27 @@
     const el = id => document.getElementById(id);
     el('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
     
-    // 🎵 音声処理の完全修正版
+    // 🎵 音声処理（音がこもる原因だったWeb Audio APIを排除し、クリアな音質のまま制御）
     const bgmEnv = new Audio('夏の田舎の夜.mp3'); bgmEnv.volume = 0.5;
-    const bgmChase = new Audio('bgm.mp3');
-    const overVoice = new Audio('夏の山2.mp3');
+    const bgmChase = new Audio('bgm.mp3'); bgmChase.volume = 0; // 追跡BGM
+    const overVoice = new Audio('夏の山2.mp3'); // ゲームオーバー音
     const stepRoadWalk = new Audio('アスファルトの上を歩く1.mp3'); stepRoadWalk.volume = 0.6;
     const stepRoadDash = new Audio('アスファルトの上を歩く2.mp3'); stepRoadDash.volume = 0.9;
     const stepGrass = new Audio('芝生の上を歩く.mp3'); stepGrass.volume = 0.7;
 
-    // 🔄 スマホでも確実にループさせるための強制イベント設定
+    // 🔄 ループ設定
     [bgmEnv, bgmChase, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => {
       a.loop = true;
-      a.addEventListener('ended', function() { this.currentTime = 0; this.play(); }, false);
+      a.addEventListener('ended', function() { this.currentTime = 0; this.play().catch(()=>{}); }, false);
     });
 
-    let audioCtx = null, chaseGain = null, activeStep = null;
+    let activeStep = null;
     
     function unlockAudio() {
-      if (!audioCtx) {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
-        chaseGain = audioCtx.createGain(); chaseGain.gain.value = 0;
-        const srcChase = audioCtx.createMediaElementSource(bgmChase);
-        srcChase.connect(chaseGain); chaseGain.connect(audioCtx.destination);
-      }
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      
-      // ⚠️ バグの元だった「一瞬再生して止める」処理を廃止し、安全に読み込むだけに修正
-      [overVoice, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => a.load());
+      // ユーザーのタップ時に全音声を一瞬だけ再生してロックを解除（スマホ対策）
+      [bgmEnv, bgmChase, overVoice, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => {
+        a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+      });
     }
 
     // 🎨 テクスチャ生成
@@ -251,13 +244,11 @@
     });
     ['mouseup','touchend','touchcancel'].forEach(e => el('dash-btn').addEventListener(e, ev=>{ ev.preventDefault(); isDash=false; }));
     
-    // 🎮 ゲーム開始時の処理（BGM・足音の確実な初期化）
     el('start-btn').onclick = () => {
-      unlockAudio(); 
-      // メイン環境音と追跡BGMをスタートさせる
-      bgmEnv.currentTime = 0; bgmEnv.play().catch(()=>{});
-      bgmChase.currentTime = 0; bgmChase.play().catch(()=>{});
-
+      unlockAudio();
+      bgmEnv.currentTime = 0; 
+      bgmEnv.play().catch(()=>{});
+      
       isRun=true; keys.yaw=0; keys.pitch=0; camera.position.set(0, 1.8, 25);
       pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
       spawn(bats,bG,bM); spawn(parts,partG,partM);
@@ -304,7 +295,7 @@
         camera.position.y = 1.8 + Math.sin(headBobTime) * (spd > 0.1 ? 0.08 : 0.04);
       } else { camera.position.y = 1.8; }
 
-      // 👣 足音の完全制御（遅延・衝突バグ解消版）
+      // 👣 足音制御
       if(isMv) {
         let onRoad = Math.abs(camera.position.x) <= 5.5; 
         let targetStep = onRoad ? (spd > 0.1 ? stepRoadDash : stepRoadWalk) : stepGrass;
@@ -312,10 +303,9 @@
         if(targetStep === stepGrass) targetStep.playbackRate = spd > 0.1 ? 1.4 : 1.0;
 
         if(activeStep !== targetStep) {
-          if(activeStep) activeStep.pause();
+          if(activeStep) { activeStep.pause(); activeStep.currentTime = 0; }
           activeStep = targetStep;
-          const playPromise = activeStep.play();
-          if (playPromise !== undefined) playPromise.catch(()=>{});
+          activeStep.play().catch(()=>{});
         }
       } else {
         if(activeStep) { 
@@ -396,11 +386,18 @@
       enemy.position.y = 1.85; 
       eDir.copy(moveDir);
 
-      // ⚠️ 追跡BGMの制御
+      // ⚠️ 追跡BGMの音質クリア制御（直接ボリュームを変更）
       if(eSt==='C' && pDist<18){ 
-        if(chaseGain) chaseGain.gain.value = Math.pow(Math.max(0, 1 - pDist/18), 1.2) * 0.8; 
+        if(bgmChase.paused) { 
+          bgmChase.currentTime = 0; // 途中から流れるのを完全防止！
+          bgmChase.play().catch(()=>{}); 
+        } 
+        bgmChase.volume = Math.pow(Math.max(0, 1 - pDist/18), 1.2) * 0.8; 
       } else { 
-        if(chaseGain) chaseGain.gain.value = 0; 
+        if(!bgmChase.paused){ 
+          bgmChase.pause(); 
+          bgmChase.currentTime = 0; // 止まったら必ず最初に戻す
+        } 
       }
 
       if(pDist<1.5){ triggerGameOver("こくにいに捕まった！"); }
@@ -413,7 +410,6 @@
       bgmEnv.pause(); 
       bgmChase.pause();
       
-      // ゲームオーバー音の再生
       overVoice.currentTime = 0;
       overVoice.play().catch(()=>{});
       
