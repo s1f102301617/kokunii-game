@@ -22,7 +22,7 @@
     #update-btn { margin-top: 15px; font-size: 0.85rem; padding: 8px 16px; background: #333; color: #aaa; border: 1px solid #555; border-radius: 15px; }
     .action-btn { font-size: 1.1rem; padding: 12px 24px; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     
-    /* ★UIを文字なしのアイコンに一新！ */
+    /* スッキリUI */
     #ui-top-left { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 10; display: none; pointer-events: none; }
     .battery-container { display: flex; align-items: center; }
     .battery-icon { width: 32px; height: 16px; border: 2px solid #fff; border-radius: 4px; position: relative; padding: 1px; box-sizing: border-box; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
@@ -45,13 +45,12 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v3.6.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v4.0.0</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
   </div>
 
-  <!-- ★UIがアイコンだけのスッキリ仕様に！ -->
   <div id="ui-top-left">
     <div class="battery-container">
       <div class="battery-icon"><div class="battery-level" id="bat-lv"></div></div>
@@ -86,21 +85,22 @@
     const el = id => document.getElementById(id);
     el('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
     
-    // 音声処理
-    const bgm = new Audio('bgm.mp3'), jumpVoice = new Audio('voice.mp3'); bgm.loop = true;
+    // 🎵 指定いただいた音源の設定
+    const bgmEnv = new Audio('夏の田舎の夜.mp3'); bgmEnv.loop = true;
+    const overVoice = new Audio('夏の山2.mp3');
     let audioCtx = null, bgmGain = null;
+
     function unlockAudio() {
       if (!audioCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
         bgmGain = audioCtx.createGain();
-        bgmGain.gain.value = 0;
-        const src = audioCtx.createMediaElementSource(bgm);
+        bgmGain.gain.value = 0.6; // 環境音の基本音量
+        const src = audioCtx.createMediaElementSource(bgmEnv);
         src.connect(bgmGain); bgmGain.connect(audioCtx.destination);
       }
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      bgm.play().then(() => { bgm.pause(); bgm.currentTime = 0; }).catch(() => {});
-      jumpVoice.play().then(() => { jumpVoice.pause(); jumpVoice.currentTime = 0; }).catch(() => {});
+      bgmEnv.play().catch(() => {});
     }
 
     // 🎨 テクスチャ生成
@@ -139,7 +139,7 @@
     const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
 
-    // 地形生成
+    // 地形・道路
     addM(new THREE.PlaneGeometry(500,500), mGrass, 0,0,0, -Math.PI/2); addM(new THREE.PlaneGeometry(10,240), mRoad, 0,0.02,10, -Math.PI/2);
 
     // ガードレール
@@ -166,6 +166,19 @@
     buildFence(-129.5, -49.5, -129.5, 129.5); buildFence(129.5, -49.5, 129.5, 129.5);
     buildFence(-129.5, 129.5, 129.5, 129.5);
 
+    // 🗺️ ランドマーク（探索の目印）の配置
+    const colls = [];
+    // ランドマーク1: 乗り捨てられた廃車（赤）
+    const carMat = new THREE.MeshStandardMaterial({color:0x881111, roughness:0.8});
+    addM(new THREE.BoxGeometry(2.2, 1.2, 4.2), carMat, -25, 0.6, 15, 0, 0.4, 0.1);
+    addM(new THREE.BoxGeometry(1.8, 0.8, 2.2), carMat, -25, 1.4, 14.5, 0, 0.4, 0.1);
+    colls.push({x: -25, z: 15, r: 2.2});
+
+    // ランドマーク2: 古い石造りの井戸
+    const wellMat = new THREE.MeshStandardMaterial({color:0x444444, roughness:0.9});
+    addM(new THREE.CylinderGeometry(1.5, 1.5, 1.2, 12, 1, true), wellMat, 30, 0.6, -10);
+    colls.push({x: 30, z: -10, r: 1.6});
+
     // 山肌
     addM(new THREE.BoxGeometry(80,30,45), mClf, -46,15,-73); addM(new THREE.BoxGeometry(80,30,45), mClf, 46,15,-73); addM(new THREE.BoxGeometry(12,22,45), mClf, 0,19,-73);
 
@@ -175,21 +188,19 @@
     addM(new THREE.BoxGeometry(0.5,2,35), mCon, -5.25,1,-67.5); addM(new THREE.BoxGeometry(0.5,2,35), mCon, 5.25,1,-67.5);
     addM(new THREE.BoxGeometry(11,8,1), mCon, 0,4,-85.5);
 
-    // トンネル入口のくり抜き壁
+    // トンネル入口
     const shp = new THREE.Shape(); shp.moveTo(-20,0); shp.lineTo(20,0); shp.lineTo(20,15); shp.lineTo(-20,15); shp.lineTo(-20,0);
     const hl = new THREE.Path(); hl.moveTo(-5,0); hl.lineTo(-5,2); hl.absarc(0,2,5,Math.PI,0,true); hl.lineTo(5,0); hl.lineTo(-5,0); shp.holes.push(hl);
     const fGeo = new THREE.ExtrudeGeometry(shp, {depth:0.5, bevelEnabled:false});
     for(let i=0; i<fGeo.attributes.position.count; i++) fGeo.attributes.uv.setXY(i, fGeo.attributes.position.getX(i)/8, fGeo.attributes.position.getY(i)/8);
     addM(fGeo, mCon, 0,0,-50.25);
     
-    // 入口の柱と梁
     addM(new THREE.BoxGeometry(1,9,1.5), mCon, -5.5,4.5,-49.5); addM(new THREE.BoxGeometry(1,9,1.5), mCon, 5.5,4.5,-49.5);
     addM(new THREE.BoxGeometry(12,1.5,1.6), new THREE.MeshStandardMaterial({map: texWarn, roughness: 0.8}), 0,9.25,-49.5);
 
-    // 非常灯
+    // 非常灯・PC
     [-58,-68,-78].forEach(z=>{ addM(new THREE.BoxGeometry(0.3,0.4,0.2), new THREE.MeshBasicMaterial({color:0xff6600}), -4.8,4,z); const l=new THREE.PointLight(0xff6600,1.5,12); l.position.set(-4.4,4,z); scene.add(l); });
 
-    // 💻 リアルなPCデスクとノートPC
     const deskM = new THREE.MeshStandardMaterial({color:0x333333, roughness:0.7});
     addM(new THREE.BoxGeometry(2.4, 0.1, 1.2), deskM, 0, 1.0, -83.5);
     addM(new THREE.BoxGeometry(0.1, 1.0, 1.0), deskM, -1.1, 0.5, -83.5);
@@ -199,11 +210,9 @@
     addM(new THREE.BoxGeometry(0.9, 0.05, 0.6), pcM, 0, 1.075, -83.3);
     const pcMon = addM(new THREE.BoxGeometry(0.9, 0.6, 0.05), pcM, 0, 1.35, -83.55, -0.1);
     addM(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshStandardMaterial({color:0xffffff, emissive:0x0088ff, emissiveIntensity: 0.8}), 0, 1.35, -83.52, -0.1);
-    
     const pcLight = new THREE.PointLight(0x00aaff, 1.0, 5); pcLight.position.set(0, 1.5, -83.0); scene.add(pcLight);
 
-    // 🌲 リアルな3段重ねの針葉樹
-    const colls = [];
+    // 針葉樹
     function addTree(x, z, s=1, r=0.7) {
       if(z > -48 && Math.hypot(x,z) < 6) return;
       const t = new THREE.Group();
@@ -221,15 +230,16 @@
     for(let i=0;i<120;i++){ let x=(Math.random()-0.5)*140, z=(Math.random()-0.5)*120; if(Math.abs(x)<7) x+=x>=0?8:-8; if(z>-48) addTree(x,z); }
     for(let i=0;i<350;i++){ let r=75+Math.random()*120, a=Math.random()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r; if(!(z<-45 && Math.abs(x)<20)) addTree(x,z,1.2,1.0); }
 
-    // アイテムスポーン関数
+    // アイテム
     const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0x888800}), partG=new THREE.BoxGeometry(0.5,0.2,0.4), partM=new THREE.MeshStandardMaterial({color:0x00ff66,emissive:0x00aa44});
     function spawn(arr, geo, mat){ for(let i=0;i<(arr===parts?4:8);i++){ let x=(Math.random()-0.5)*(arr===parts?90:110), z=(Math.random()-0.5)*100; if(z<-45) z=0; arr.push(addM(geo, mat, x, 0.3, z)); } }
     
-    // 敵
+    // 敵（こくにい）
     const enemy = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.TextureLoader().load('kokunii.PNG')})); enemy.scale.set(3.5,3.5,1); scene.add(enemy);
 
     // 変数定義
     let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
+    let headBobTime = 0; // 🎥 ヘッドボブ（カメラ揺れ）用変数
     const keys = { yaw: 0, pitch: 0 };
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
     
@@ -284,7 +294,15 @@
       const tS = mDir.s + (keys['KeyD']||keys['ArrowRight']?1:0) - (keys['KeyA']||keys['ArrowLeft']?1:0);
       const isMv = tF!==0 || tS!==0, spd = (isDash||keys['ShiftLeft']?0.12:0.07);
 
-      // UI更新（アイコン・ゲージ化）
+      // 🎥 ヘッドボブ（歩行・走りのリアルな視点揺れ）
+      if(isMv) {
+        headBobTime += dt * (spd > 0.1 ? 14 : 8);
+        camera.position.y = 1.8 + Math.sin(headBobTime) * (spd > 0.1 ? 0.08 : 0.04);
+      } else {
+        camera.position.y = 1.8;
+      }
+
+      // UI更新
       if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); } } 
       const batLv = el('bat-lv'); batLv.style.width = batt + '%'; batLv.style.backgroundColor = batt > 20 ? '#0f0' : '#f00';
       if(spd>0.1 && stam>0 && isMv){ stam-=dt*25; if(stam<=0){ stam=0; isDash=false; } } else if(stam<100) stam=Math.min(100, stam+dt*15); 
@@ -295,9 +313,7 @@
         noBatt+=dt; wTxt.style.color='#f33'; wTxt.style.display='block'; wTxt.innerText=`⚠️ 闇の中！ ${(Math.max(0,5-noBatt)).toFixed(1)}秒で急襲！`;
         if(noBatt>=5){ 
           enemy.position.copy(camera.position).add(new THREE.Vector3(0,0,-1.2).applyAxisAngle(new THREE.Vector3(0,1,0), keys.yaw)); 
-          enemy.position.y=1.85; isOver=true; 
-          if(document.exitPointerLock) document.exitPointerLock(); 
-          el('game-over').style.display='flex'; return; 
+          triggerGameOver("暗闇の中で捕まった..."); return; 
         }
       } else {
         noBatt=0;
@@ -305,7 +321,7 @@
         else { wTxt.style.display='none'; }
       }
 
-      // ★ アイテム取得判定（高さを無視した平面距離に変更）
+      // アイテム取得
       [bats, parts].forEach((arr, idx) => {
         for(let i=arr.length-1; i>=0; i--){
           arr[i].rotation.y+=dt*(idx?3:2);
@@ -321,7 +337,7 @@
         }
       });
       
-      // クリア判定も平面距離で
+      // クリア判定
       if(pCnt>=4 && Math.hypot(camera.position.x - pcMon.position.x, camera.position.z - pcMon.position.z) < 2.5) { 
         isClr=true; if(document.exitPointerLock) document.exitPointerLock(); el('game-clear').style.display='flex'; return; 
       }
@@ -342,19 +358,52 @@
         }
       }
 
-      camera.position.set(Math.max(-129,Math.min(129,camera.position.x)), 1.8, Math.max(-84,Math.min(129,camera.position.z)));
+      camera.position.set(Math.max(-129,Math.min(129,camera.position.x)), camera.position.y, Math.max(-84,Math.min(129,camera.position.z)));
 
+      // 👁️📈 こくにいAI（難易度調整・ステルス・視界判定）
       const pVec = new THREE.Vector3().subVectors(camera.position, enemy.position); pVec.y=0; const pDist = pVec.length();
-      if(eSt==='P' && (pDist<7 || (pDist<18 && eDir.angleTo(pVec.clone().normalize())<Math.PI/3))) eSt='C'; else if(eSt==='C' && pDist>20) { eSt='P'; pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250); }
+      
+      // パーツ取得数（pCnt）に応じてスピード・感知距離がアップ！
+      const currentChaseSpeed = 0.075 + (pCnt * 0.012); // パーツ3個でプレイヤーのダッシュ同等に！
+      const detectRange = 16 + (pCnt * 4) + (light ? 8 : 0); // ライトONだと見つかりやすい！
+
+      if(eSt==='P') {
+        if(pDist < detectRange) {
+          const angle = eDir.angleTo(pVec.clone().normalize());
+          // こくにいの前方120度に入るか、超至近距離(8m)で発見
+          if(angle < Math.PI / 3 || pDist < 8) eSt='C';
+        }
+      } else if(eSt==='C') {
+        if(pDist > detectRange + 8) {
+          eSt='P'; pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
+        }
+      }
+
       let moveDir = eSt==='C' ? pVec.clone().normalize() : new THREE.Vector3().subVectors(pTgt,enemy.position).setY(0).normalize();
       if(eSt==='P' && enemy.position.distanceTo(pTgt)<1.5) pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
-      enemy.position.addScaledVector(moveDir, eSt==='C'?0.078:0.035); 
+      
+      enemy.position.addScaledVector(moveDir, eSt==='C' ? currentChaseSpeed : 0.035); 
       enemy.position.y = 1.85; 
       eDir.copy(moveDir);
 
-      if(eSt==='C' && pDist<18){ if(bgm.paused) bgm.play().catch(()=>{}); if(bgmGain) bgmGain.gain.value=Math.pow(Math.max(0,1-pDist/18),1.2)*0.8; } else { if(!bgm.paused){ bgm.pause(); bgm.currentTime=0;} if(bgmGain) bgmGain.gain.value=0; }
-      if(pDist<1.5){ isOver=true; if(document.exitPointerLock) document.exitPointerLock(); el('game-over').style.display='flex'; jumpVoice.play().catch(()=>{}); }
+      if(eSt==='C' && pDist<18) {
+        if(bgmGain) bgmGain.gain.value = 0.9;
+      } else {
+        if(bgmGain) bgmGain.gain.value = 0.4;
+      }
+
+      // ☠️ 当たり判定（ゲームオーバー処理）
+      if(pDist<1.5){ triggerGameOver("こくにいに捕まった！"); }
       renderer.render(scene, camera);
+    }
+
+    function triggerGameOver(reason) {
+      isOver = true;
+      if(document.exitPointerLock) document.exitPointerLock();
+      bgmEnv.pause(); // 環境音をストップ
+      overVoice.play().catch(()=>{}); // 🎵 ご指定の「夏の山2.mp3」を再生！
+      el('death-reason').innerText = reason;
+      el('game-over').style.display = 'flex';
     }
   </script>
 </body>
