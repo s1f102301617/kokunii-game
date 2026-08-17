@@ -36,7 +36,7 @@
 <body>
   <div id="rotate-notice"><div style="font-size:3.5rem;margin-bottom:15px">📱↪️</div><h2 style="margin:0 0 10px">画面を横にしてください</h2></div>
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem;color:#888;margin-left:6px">v5.4.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem;color:#888;margin-left:6px">v5.5.0</span></h1>
     <p style="font-size:0.8rem;opacity:0.6;line-height:1.4">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
@@ -60,16 +60,16 @@
     const el = id => document.getElementById(id);
     el('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
     
-    // 🎵 音声処理 (関数化で超圧縮)
+    // 🎵 音声処理のバグを完全修正（安全なロードと再生）
     const A = (s, v=1, l=false) => { let a = new Audio(s); a.volume=v; a.loop=l; return a; };
     const bEnv = A('夏の田舎の夜.mp3', 0.5, true), bChase = A('bgm.mp3', 0, true), overV = A('夏の山2.mp3');
     const sRW = A('アスファルトの上を歩く1.mp3', 0.6, true), sRD = A('アスファルトの上を歩く2.mp3', 0.9, true), sG = A('芝生の上を歩く.mp3', 0.7, true);
     
-    [bEnv, bChase, sRW, sRD, sG].forEach(a => a.addEventListener('ended', ()=>{ a.currentTime=0; a.play().catch(()=>{}); }));
+    // スマホでもループが途切れないようにする処理
+    [bEnv, bChase, sRW, sRD, sG].forEach(a => a.addEventListener('ended', function(){ this.currentTime=0; this.play().catch(()=>{}); }));
     let actStep = null;
-    function unlAudio() { [bEnv, bChase, overV, sRW, sRD, sG].forEach(a => a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{})); }
 
-    // 🎨 テクスチャ生成 (変数名短縮)
+    // 🎨 テクスチャ生成
     const mkT = (w,h,f, rx=1,ry=1) => { const c=document.createElement('canvas'); c.width=w; c.height=h; f(c.getContext('2d')); const t=new THREE.CanvasTexture(c); if(rx!==1||ry!==1){t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx,ry);} return t; };
     const tGrs = mkT(256,256, x=>{x.fillStyle='#0a0f07';x.fillRect(0,0,256,256);for(let i=0;i<4000;i++){x.fillStyle=Math.random()>0.6?'#050804':(Math.random()>0.2?'#101a0d':'#17140e');x.fillRect(Math.random()*256,Math.random()*256,2,3);}}, 40,40);
     const tRod = mkT(256,512, x=>{x.fillStyle='#141416';x.fillRect(0,0,256,512);for(let i=0;i<8000;i++){x.fillStyle=`rgba(${~~(Math.random()*25)},${~~(Math.random()*25)},${~~(Math.random()*25)},0.2)`;x.fillRect(Math.random()*256,Math.random()*512,2,2);}x.strokeStyle='#08080a';x.lineWidth=2;for(let i=0;i<15;i++){x.beginPath();let cx=Math.random()*256,cy=Math.random()*512;x.moveTo(cx,cy);for(let j=0;j<5;j++){cx+=(Math.random()-0.5)*30;cy+=(Math.random()-0.5)*30;x.lineTo(cx,cy);}x.stroke();}x.fillStyle='rgba(160,160,160,0.35)';x.fillRect(122,40,12,160);x.fillRect(122,300,12,160);}, 1,20);
@@ -127,7 +127,7 @@
     const cls = []; const cM=M(0x881111,0.8,0); addM(new THREE.BoxGeometry(2.2,1.2,4.2), cM, -25,0.6,15, 0,0.4,0.1); addM(new THREE.BoxGeometry(1.8,0.8,2.2), cM, -25,1.4,14.5, 0,0.4,0.1); cls.push({x:-25,z:15,r:2.2});
     addM(new THREE.CylinderGeometry(1.5,1.5,1.2,12,1,true), M(0x444,0.9,0), 30,0.6,-10); cls.push({x:30,z:-10,r:1.6});
 
-    // 🌲 リアル針葉樹（★設計図の使い回しで超軽量化！）
+    // 🌲 リアル針葉樹
     const trG = new THREE.CylinderGeometry(0.3,0.6,3.5,6), tm = M(0x110a05,1,0), lm = M(0x050d05,0.9,0);
     const lGs = [new THREE.ConeGeometry(2.6,3.5,7), new THREE.ConeGeometry(2.1,3.5,7), new THREE.ConeGeometry(1.6,3.5,7), new THREE.ConeGeometry(1.1,3.5,7)];
     function addTr(x, z, s=1, r=0.7) {
@@ -155,8 +155,11 @@
     });
     ['mouseup','touchend','touchcancel'].forEach(e => el('dash-btn').addEventListener(e, ev=>{ ev.preventDefault(); dash=false; }));
     
+    // ★ ここで音声の確実なロードと、メインBGMのみを再生
     el('start-btn').onclick = () => {
-      unlAudio(); bEnv.currentTime=0; bEnv.play().catch(()=>{});
+      [bEnv, bChase, overV, sRW, sRD, sG].forEach(a => a.load());
+      bEnv.currentTime=0; bEnv.play().catch(()=>{});
+      
       run=true; ks.y=ks.p=0; cam.position.set(0,1.8,25); pTg.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
       spn(bats,bGeo,bMat); spn(pts,pGeo,pMat);
       el('start-screen').style.display='none'; el('ui-top-left').style.display='flex';
@@ -177,11 +180,20 @@
       const mv=tF!==0||tS!==0, spd=(dash||ks['ShiftLeft']?0.12:0.07);
 
       if(mv) { hbT+=dt*(spd>0.1?14:8); cam.position.y=1.8+Math.sin(hbT)*(spd>0.1?0.08:0.04); } else { cam.position.y=1.8; }
+      
+      // ★ 足音のバグ修正版（遅延再生によるエラーを握りつぶす）
       if(mv) {
         let ts = Math.abs(cam.position.x)<=5.5 ? (spd>0.1?sRD:sRW) : sG;
         if(ts===sG) ts.playbackRate=spd>0.1?1.4:1;
-        if(actStep!==ts){ if(actStep){actStep.pause(); actStep.currentTime=0;} actStep=ts; actStep.play().catch(()=>{}); }
-      } else { if(actStep){ actStep.pause(); actStep.currentTime=0; actStep=null; } }
+        if(actStep!==ts){ 
+          if(actStep){ actStep.pause(); actStep.currentTime=0; } 
+          actStep=ts; 
+          let p = actStep.play();
+          if(p !== undefined) p.catch(()=>{});
+        }
+      } else { 
+        if(actStep){ actStep.pause(); actStep.currentTime=0; actStep=null; } 
+      }
 
       if(lt&&bat>0){ bat-=dt*0.2; if(bat<=0){ bat=0; setLight(false); } } 
       const bLv=el('bat-lv'); bLv.style.width=bat+'%'; bLv.style.backgroundColor=bat>20?'#0f0':'#f00';
@@ -200,7 +212,7 @@
           }
         }
       });
-      if(pCnt>=4 && Math.hypot(cam.position.x-pcMon.position.x, cam.position.z-pcMon.position.z)<2.5) { clr=true; if(actStep)actStep.pause(); bEnv.pause(); bChase.pause(); if(document.exitPointerLock)document.exitPointerLock(); el('game-clear').style.display='flex'; return; }
+      if(pCnt>=4 && Math.hypot(cam.position.x-pcMon.position.x, cam.position.z-pcMon.position.z)<2.5) { clr=true; endG("脱出成功", 1); return; }
 
       cam.rotation.set(ks.p, ks.y, 0, 'YXZ'); const oX=cam.position.x, oZ=cam.position.z;
       cam.position.addScaledVector(new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),ks.y), tF*spd).addScaledVector(new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),ks.y), tS*spd);
@@ -212,18 +224,32 @@
 
       const pV=new THREE.Vector3().subVectors(cam.position,eny.position); pV.y=0; const pD=pV.length(), cs=0.075+(pCnt*0.012), dr=16+(pCnt*4)+(lt?8:0);
       if(eSt==='P'){ if(pD<dr){ if(eDr.angleTo(pV.clone().normalize())<1.04 || pD<8) eSt='C'; } }else if(eSt==='C'){ if(pD>dr+8){ eSt='P'; pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250); } }
-      let md=eSt==='C'?pV.clone().normalize():new THREE.Vector3().subVectors(pTgt,eny.position).setY(0).normalize();
+      let md = eSt==='C' ? pV.clone().normalize() : new THREE.Vector3().subVectors(pTgt,eny.position).setY(0).normalize();
       if(eSt==='P'&&eny.position.distanceTo(pTgt)<1.5) pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
       eny.position.addScaledVector(md, eSt==='C'?cs:0.035); eny.position.y=1.85; eDr.copy(md);
 
-      if(eSt==='C'&&pD<18){ if(bChase.paused){bChase.currentTime=0; bChase.play().catch(()=>{});} bChase.volume=Math.pow(Math.max(0,1-pD/18),1.2)*0.8; }else{ if(!bChase.paused){bChase.pause(); bChase.currentTime=0;} }
-      if(pD<1.5) endG("捕まった"); ren.render(sc, cam);
+      // ★ 追跡BGMの途中再生バグ解消版
+      if(eSt==='C'&&pD<18){ 
+        if(bChase.paused){ bChase.currentTime=0; bChase.play().catch(()=>{}); } 
+        bChase.volume = Math.pow(Math.max(0,1-pD/18),1.2)*0.8; 
+      }else{ 
+        if(!bChase.paused){ bChase.pause(); bChase.currentTime=0; } 
+      }
+      
+      if(pD<1.5) endG("こくにいに捕まった！"); else ren.render(sc, cam);
     }
 
-    function endG(rs) {
-      over=true; if(actStep){actStep.pause();actStep=null;} bEnv.pause(); bChase.pause();
-      overVoice.currentTime=0; overVoice.play().catch(()=>{});
-      if(document.exitPointerLock) document.exitPointerLock(); el('death-reason').innerText=rs; el('game-over').style.display='flex';
+    function endG(txt, c=0) {
+      over=true; 
+      if(actStep){ actStep.pause(); actStep=null; } 
+      bEnv.pause(); bChase.pause();
+      
+      // ゲームオーバーならひぐらし再生
+      if(!c) { overVoice.currentTime=0; overVoice.play().catch(()=>{}); }
+      
+      if(document.exitPointerLock) document.exitPointerLock(); 
+      if(!c) el('death-reason').innerText=txt; 
+      el(c ? 'game-clear' : 'game-over').style.display='flex';
     }
   </script>
 </body>
