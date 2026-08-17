@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
-  <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="こくにいゲーム">
+  <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>恐怖の森 - こくにいVer.</title>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -22,7 +22,6 @@
     #update-btn { margin-top: 15px; font-size: 0.85rem; padding: 8px 16px; background: #333; color: #aaa; border: 1px solid #555; border-radius: 15px; }
     .action-btn { font-size: 1.1rem; padding: 12px 24px; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     
-    /* スッキリUI */
     #ui-top-left { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 10; display: none; pointer-events: none; }
     .battery-container { display: flex; align-items: center; }
     .battery-icon { width: 32px; height: 16px; border: 2px solid #fff; border-radius: 4px; position: relative; padding: 1px; box-sizing: border-box; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
@@ -45,7 +44,7 @@
   <div id="rotate-notice"><div style="font-size:3.5rem; margin-bottom:15px;">📱↪️</div><h2 style="margin:0 0 10px;">画面を横にしてください</h2></div>
   
   <div id="start-screen" class="screen">
-    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v5.6.0</span></h1>
+    <h1>恐怖の森 - こくにいVer.<span style="font-size:0.85rem; color:#888; margin-left:6px;">v5.7.0</span></h1>
     <p style="font-size:0.8rem; opacity:0.6; line-height:1.4;">【PC】WASD:移動 / マウス:視点 / Shift:走る / F:ライト<br>【スマホ】左ドラッグ:移動 / 右ドラッグ:視点</p>
     <button id="start-btn" class="btn">🎮 ゲームスタート</button>
     <button id="update-btn" class="btn">🔄 最新版にアップデート</button>
@@ -75,28 +74,21 @@
     const el = id => document.getElementById(id);
     el('update-btn').onclick = () => location.href = location.pathname + '?v=' + Date.now();
     
-    // 🎵 音声処理（完全に安定した再生方式）
-    const bgmEnv = new Audio('夏の田舎の夜.mp3'); bgmEnv.volume = 0.5;
-    const bgmChase = new Audio('bgm.mp3'); bgmChase.volume = 0; 
-    const overVoice = new Audio('夏の山2.mp3');
-    const stepRoadWalk = new Audio('アスファルトの上を歩く1.mp3'); stepRoadWalk.volume = 0.6;
-    const stepRoadDash = new Audio('アスファルトの上を歩く2.mp3'); stepRoadDash.volume = 0.9;
-    const stepGrass = new Audio('芝生の上を歩く.mp3'); stepGrass.volume = 0.7;
+    // 🎵 音声処理（完全にクリーンで安全な設計に書き直し）
+    const aEnv = new Audio('夏の田舎の夜.mp3'); aEnv.volume = 0.5;
+    const aChase = new Audio('bgm.mp3'); aChase.volume = 0; 
+    const aOver = new Audio('夏の山2.mp3');
+    const aWalk = new Audio('アスファルトの上を歩く1.mp3'); aWalk.volume = 0.6;
+    const aDash = new Audio('アスファルトの上を歩く2.mp3'); aDash.volume = 0.9;
+    const aGrass = new Audio('芝生の上を歩く.mp3'); aGrass.volume = 0.7;
 
-    // 🔄 ループ設定
-    [bgmEnv, bgmChase, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => {
+    // バグの原因となるWeb Audio APIを排除し、純粋なループイベントを設定
+    [aEnv, aChase, aWalk, aDash, aGrass].forEach(a => {
       a.loop = true;
       a.addEventListener('ended', function() { this.currentTime = 0; this.play().catch(()=>{}); }, false);
     });
 
     let activeStep = null;
-    
-    function unlockAudio() {
-      // スマホ向けに全音声を一瞬だけ再生して裏で準備させる処理
-      [bgmEnv, bgmChase, overVoice, stepRoadWalk, stepRoadDash, stepGrass].forEach(a => {
-        a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
-      });
-    }
 
     // 🎨 テクスチャ生成
     function makeTex(w, h, draw, repX=1, repY=1) {
@@ -244,12 +236,9 @@
     });
     ['mouseup','touchend','touchcancel'].forEach(e => el('dash-btn').addEventListener(e, ev=>{ ev.preventDefault(); isDash=false; }));
     
+    // 🎮 ゲーム開始時の処理（安全に環境音だけを流す）
     el('start-btn').onclick = () => {
-      unlockAudio();
-      
-      // BGM再生
-      bgmEnv.currentTime = 0; 
-      bgmEnv.play().catch(()=>{});
+      aEnv.play().catch(()=>{}); // 最初のクリックで安全にBGM開始
       
       isRun=true; keys.yaw=0; keys.pitch=0; camera.position.set(0, 1.8, 25);
       pTgt.set((Math.random()-0.5)*250,1.85,(Math.random()-0.5)*250);
@@ -297,22 +286,22 @@
         camera.position.y = 1.8 + Math.sin(headBobTime) * (spd > 0.1 ? 0.08 : 0.04);
       } else { camera.position.y = 1.8; }
 
-      // 👣 足音制御
+      // 👣 足音の完全制御（遅延・衝突バグ解消版）
       if(isMv) {
         let onRoad = Math.abs(camera.position.x) <= 5.5; 
-        let targetStep = onRoad ? (spd > 0.1 ? stepRoadDash : stepRoadWalk) : stepGrass;
+        let targetStep = onRoad ? (spd > 0.1 ? aDash : aWalk) : aGrass;
         
-        if(targetStep === stepGrass) targetStep.playbackRate = spd > 0.1 ? 1.4 : 1.0;
+        if(targetStep === aGrass) targetStep.playbackRate = spd > 0.1 ? 1.4 : 1.0;
 
         if(activeStep !== targetStep) {
-          if(activeStep) { activeStep.pause(); activeStep.currentTime = 0; }
+          if(activeStep) activeStep.pause();
           activeStep = targetStep;
+          activeStep.currentTime = 0; // 最初から再生
           activeStep.play().catch(()=>{});
         }
       } else {
         if(activeStep) { 
           activeStep.pause(); 
-          activeStep.currentTime = 0; 
           activeStep = null; 
         }
       }
@@ -320,13 +309,7 @@
       // UI更新
       if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); } } 
       const batLv = el('bat-lv'); batLv.style.width = batt + '%'; batLv.style.backgroundColor = batt > 20 ? '#0f0' : '#f00';
-      
-      if(spd>0.1 && stam>0 && isMv){ 
-        stam-=dt*25; 
-        if(stam<=0){ stam=0; isDash=false; } 
-      } else if(stam<100) {
-        stam=Math.min(100, stam+dt*15); 
-      }
+      if(spd>0.1 && stam>0 && isMv){ stam-=dt*25; if(stam<=0){ stam=0; isDash=false; } } else if(stam<100) stam=Math.min(100, stam+dt*15); 
       el('sta-lv').style.width = stam + '%';
       
       const wTxt = el('warning-text');
@@ -362,8 +345,8 @@
       if(pCnt>=4 && Math.hypot(camera.position.x - pcMon.position.x, camera.position.z - pcMon.position.z) < 2.5) { 
         isClr=true; 
         if(activeStep) activeStep.pause(); 
-        bgmEnv.pause(); 
-        bgmChase.pause();
+        aEnv.pause(); 
+        aChase.pause();
         if(document.exitPointerLock) document.exitPointerLock(); 
         el('game-clear').style.display='flex'; 
         return; 
@@ -401,15 +384,14 @@
 
       // ⚠️ 追跡BGMの制御
       if(eSt==='C' && pDist<18){ 
-        if(bgmChase.paused) { 
-          bgmChase.currentTime = 0; 
-          bgmChase.play().catch(()=>{}); 
+        if(aChase.paused) { 
+          aChase.currentTime = 0; 
+          aChase.play().catch(()=>{}); 
         } 
-        bgmChase.volume = Math.pow(Math.max(0, 1 - pDist/18), 1.2) * 0.8; 
+        aChase.volume = Math.pow(Math.max(0, 1 - pDist/18), 1.2) * 0.8; 
       } else { 
-        if(!bgmChase.paused){ 
-          bgmChase.pause(); 
-          bgmChase.currentTime = 0;
+        if(!aChase.paused){ 
+          aChase.pause(); 
         } 
       }
 
@@ -420,11 +402,12 @@
     function triggerGameOver(reason) {
       isOver = true;
       if(activeStep) { activeStep.pause(); activeStep = null; }
-      bgmEnv.pause(); 
-      bgmChase.pause();
+      aEnv.pause(); 
+      aChase.pause();
       
-      overVoice.currentTime = 0;
-      overVoice.play().catch(()=>{});
+      // ゲームオーバー時のみひぐらしを再生
+      aOver.currentTime = 0;
+      aOver.play().catch(()=>{});
       
       if(document.exitPointerLock) document.exitPointerLock();
       el('death-reason').innerText = reason;
