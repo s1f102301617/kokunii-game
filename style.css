@@ -114,3 +114,6 @@ body[data-threat="true"] .view-effects { background: radial-gradient(ellipse at 
   #dash-btn { bottom: max(12px, env(safe-area-inset-bottom)); }
   #pickup-notice { bottom: max(16px, env(safe-area-inset-bottom)); }
 }
+#terminal-btn { position: fixed; display: none; z-index: 13; left: 50%; top: 61%; transform: translateX(-50%); min-width: 124px; }
+#terminal-btn:disabled { color: var(--light); cursor: default; }
+body:not([data-mode="play"]) #terminal-btn { visibility: hidden; }

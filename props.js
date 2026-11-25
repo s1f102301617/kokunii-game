@@ -126,7 +126,7 @@ function makeForestProps(scene) {
     const wire = new THREE.CatmullRomCurve3(coords.map(p => new THREE.Vector3(...p)));
     add(terminal, new THREE.TubeGeometry(wire, 12, .012, 4, false), rubber);
   }
-  function updateScreen(parts) {
+  function updateScreen(parts, progress = null) {
     ctx.fillStyle = '#0c2119';
     ctx.fillRect(0, 0, screen.width, screen.height);
     ctx.strokeStyle = '#779b64';
@@ -136,7 +136,7 @@ function makeForestProps(scene) {
     ctx.fillText('FIELD TERMINAL', 31, 68);
     ctx.font = '21px monospace';
     ctx.fillText('MODULES  ' + parts + '/4', 31, 122);
-    ctx.fillText(parts >= 4 ? 'LINK READY' : 'STANDBY', 31, 184);
+    ctx.fillText(progress !== null ? 'SYNC ' + progress + '%' : parts >= 4 ? 'LINK READY' : 'STANDBY', 31, 184);
     for (let y = 0; y < screen.height; y += 4) {
       ctx.fillStyle = '#04120c46';
       ctx.fillRect(0, y, screen.width, 1);
@@ -146,4 +146,89 @@ function makeForestProps(scene) {
   }
   updateScreen(0);
   return { target: terminal.position, updateScreen };
+}
+
+function buildRecoveryScenery(scene) {
+  const material = (color, roughness = .9, metalness = 0) => new THREE.MeshStandardMaterial({color, roughness, metalness});
+  const steel = material(0x6a6a61, .63, .35);
+  const black = material(0x242820);
+  const bone = material(0xa9a185, .7);
+  const copper = material(0x955a32, .58, .3);
+  const board = material(0x365843);
+  const brick = [0x474a3e, 0x56584a, 0x5c5848, 0x41463d].map(color => material(color));
+  const lamp = new THREE.MeshStandardMaterial({color:0xc8a568, emissive:0xe3a958, emissiveIntensity:.64, roughness:.55});
+  const moss = material(0x4b5139);
+  function mesh(group, geo, mat, x,y,z) {
+    const item = new THREE.Mesh(geo,mat);
+    item.position.set(x,y,z);
+    group.add(item);
+    return item;
+  }
+  const box = (group, mat, w,h,d,x,y,z) => mesh(group,new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+  const well = new THREE.Group();
+  well.position.set(30,0,-10);
+  scene.add(well);
+  for (let row=0;row<4;row++) {
+    for (let segment=0;segment<14;segment++) {
+      const angle = (segment + row*.5) * Math.PI/7;
+      const stone = box(well,brick[(segment*5+row)%brick.length],.61,.24,.35,Math.cos(angle)*1.36,.14+row*.245,Math.sin(angle)*1.36);
+      stone.rotation.y = Math.PI/2-angle;
+    }
+  }
+  mesh(well,new THREE.TorusGeometry(1.36,.18,6,24),brick[2],0,1.03,0).rotation.x=Math.PI/2;
+  mesh(well,new THREE.CircleGeometry(1.22,24),black,0,.1,0).rotation.x=-Math.PI/2;
+  box(well,steel,.13,1.66,.13,-1.12,.83,0);
+  box(well,steel,.13,1.66,.13,1.12,.83,0);
+  box(well,steel,2.35,.11,.11,0,1.63,0);
+  box(well,copper,.035,.55,.035,-.31,1.33,.03);
+  mesh(well,new THREE.CylinderGeometry(.21,.16,.29,9,1,true),steel,-.31,.93,.03);
+  for (let i=0;i<11;i++) {
+    const angle = i * 1.7;
+    const patch = box(well,moss,.19,.025,.1,Math.cos(angle)*1.41,1.186,Math.sin(angle)*1.41);
+    patch.rotation.y = angle;
+  }
+
+  function makeItem(kind, variant) {
+    const prop = new THREE.Group();
+    if (kind === 'battery') {
+      mesh(prop,new THREE.CylinderGeometry(.15,.15,.46,12),bone,0,0,0);
+      mesh(prop,new THREE.CylinderGeometry(.153,.153,.13,12),black,0,-.125,0);
+      mesh(prop,new THREE.CylinderGeometry(.06,.06,.045,10),steel,0,.25,0);
+      box(prop,copper,.19,.13,.022,0,.03,.146);
+    } else if (variant % 2 === 0) {
+      box(prop,board,.53,.075,.34,0,0,0);
+      box(prop,steel,.23,.074,.22,.04,.074,-.025);
+      box(prop,black,.16,.052,.12,-.13,.059,.012);
+      for (let i=0;i<7;i++) box(prop,copper,.025,.02,.095,-.21+.065*i,.049,.12);
+      box(prop,lamp,.055,.028,.046,.19,.054,-.087);
+    } else {
+      box(prop,black,.51,.105,.31,0,0,0);
+      box(prop,bone,.37,.027,.23,0,.058,-.02);
+      for(const x of [-.17,0,.17]) {
+        const fuse=mesh(prop,new THREE.CylinderGeometry(.056,.056,.2,9),steel,x,.103,.025);
+        fuse.rotation.x=Math.PI/2;
+        box(prop,copper,.075,.06,.062,x,.075,.14);
+      }
+      box(prop,lamp,.05,.028,.047,-.2,.065,-.105);
+    }
+    return prop;
+  }
+
+  function trailMarker(x,z,code) {
+    const post = new THREE.Group();
+    post.position.set(x,0,z);
+    const face=box(post,steel,.54,.27,.06,0,1.11,0);
+    face.rotation.y=x<0?.36:-.36;
+    box(post,black,.083,1.22,.083,0,.61,0);
+    box(post,lamp,.13,.046,.018,-.11,1.14,.037);
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle='#242620'; ctx.fillRect(0,0,128,64);
+    ctx.strokeStyle='#a09570'; ctx.strokeRect(5,5,118,54);
+    ctx.fillStyle='#bfb591'; ctx.font='29px monospace'; ctx.fillText(code,20,43);
+    mesh(face,new THREE.PlaneGeometry(.49,.24),new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(canvas),roughness:.9}),0,0,.031);
+    scene.add(post);
+  }
+  return { makeItem, trailMarker };
 }

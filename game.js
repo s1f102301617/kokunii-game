@@ -182,8 +182,7 @@ function boot() {
     const colls = [];
     colls.push({x: -25, z: 15, r: 2.2});
 
-    const wellMat = new THREE.MeshStandardMaterial({color:0x444444, roughness:0.9});
-    addM(new THREE.CylinderGeometry(1.5, 1.5, 1.2, 12, 1, true), wellMat, 30, 0.6, -10);
+    const scenery = buildRecoveryScenery(scene);
     colls.push({x: 30, z: -10, r: 1.6});
 
     // 山肌
@@ -218,6 +217,10 @@ function boot() {
       { x: -18, z: -29, name: 'トンネル手前の左の林' },
       { x: 19, z: 39, name: '道路南側の林' }
     ];
+    scenery.trailMarker(-4.6, 8, 'A');
+    scenery.trailMarker(4.6, -25, 'B');
+    scenery.trailMarker(-4.6, -29, 'C');
+    scenery.trailMarker(4.6, 43, 'D');
     const trees = [];
     function addTree(x, z, scale = 1, radius = 0.7) {
       if (Math.hypot(x, z) < 6 || partZones.some(zone => Math.hypot(x - zone.x, z - zone.z) < 2)) return;
@@ -230,8 +233,8 @@ function boot() {
     buildForest(scene, trees);
 
     // アイテムスポーン
-    const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0x888800}), partG=new THREE.BoxGeometry(0.5,0.2,0.4), partM=new THREE.MeshStandardMaterial({color:0x00ff66,emissive:0x00aa44});
-    function spawnAt(arr, geo, mat, zone) {
+    const bats = [], parts = [];
+    function spawnAt(arr, zone) {
       let x = zone.x, z = zone.z;
       for (let attempt = 0; attempt < 24; attempt++) {
         const candidateX = zone.x + (Math.random() - 0.5) * 8;
@@ -242,7 +245,9 @@ function boot() {
           break;
         }
       }
-      const item = addM(geo, mat, x, 0.35, z);
+      const item = scenery.makeItem(arr === bats ? 'battery' : 'module', arr.length);
+      item.position.set(x, arr === bats ? .34 : .26, z);
+      scene.add(item);
       item.userData.zone = zone.name;
       arr.push(item);
     }
@@ -251,7 +256,7 @@ function boot() {
         { x: 0, z: 46 }, { x: -11, z: 49 }, { x: 11, z: 11 }, { x: -10, z: 9 },
         { x: -14, z: -25 }, { x: 15, z: -29 }, { x: -2, z: -34 }, { x: 2, z: 13 }
       ];
-      for (const zone of zones) spawnAt(bats, bG, bM, zone);
+      for (const zone of zones) spawnAt(bats, zone);
     }
 
     // 敵
@@ -261,6 +266,10 @@ function boot() {
     let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
     let headBobTime = 0;
     let sprintBlend = 0;
+    const pursuit = { state: 'P', timer: 0, x: 0, z: 0 };
+    let navigationHelp = false;
+    let terminalProgress = 0;
+    let connecting = false;
     const keys = { yaw: 0, pitch: 0 };
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
 
@@ -359,6 +368,12 @@ function boot() {
       el('sound-btn').setAttribute('aria-pressed', String(muted));
     });
     el('resume-btn').addEventListener('click', resume);
+    el('hint-btn').addEventListener('click', () => {
+      navigationHelp = !navigationHelp;
+      el('hint-btn').setAttribute('aria-pressed', String(navigationHelp));
+      el('hint-btn').textContent = navigationHelp ? '方角の案内 ON' : '方角の案内 OFF';
+    });
+    el('terminal-btn').addEventListener('click', startTerminal);
     window.addEventListener('blur', pause);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
@@ -384,7 +399,7 @@ function boot() {
       enemy.position.set(29, 1.85, -20);
       patrolTarget();
       spawnBattery();
-      for (const zone of partZones) spawnAt(parts, partG, partM, zone);
+      for (const zone of partZones) spawnAt(parts, zone);
       el('start-screen').style.display = 'none';
       el('ui-top-left').style.display = 'flex';
       el('pause-btn').style.display = 'block';
@@ -400,6 +415,7 @@ function boot() {
     window.addEventListener('keydown', event => {
       if (!running()) return;
       if (event.code === 'Escape') { pause(); return; }
+      if (event.code === 'KeyE' && !event.repeat) startTerminal();
       if (event.code.startsWith('Arrow')) event.preventDefault();
       keys[event.code] = true;
       if (event.code === 'KeyF' && !event.repeat && batt > 0) setLight(!light);
@@ -466,6 +482,46 @@ function boot() {
       const direction = Math.round(angle / (Math.PI / 4));
       return directionArrows[((direction % 8) + 8) % 8];
     }
+    const terminalRadius = 2.8;
+    const bootTime = 3.4;
+    function terminalInReach() {
+      return Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < terminalRadius;
+    }
+    function startTerminal() {
+      if (!running() || pCnt < 4 || !terminalInReach() || connecting) return;
+      terminalProgress = 0;
+      connecting = true;
+      showPickup('接続音がトンネルに響く');
+    }
+    function updateTerminal(dt) {
+      const ready = pCnt >= 4 && terminalInReach();
+      const button = el('terminal-btn');
+      button.style.display = ready && running() ? 'block' : 'none';
+      if (!ready) {
+        if (connecting) {
+          showPickup('端末との接続が切れた');
+          terminal.updateScreen(pCnt);
+        }
+        connecting = false;
+        terminalProgress = 0;
+        return false;
+      }
+      if (!connecting) {
+        button.disabled = false;
+        button.textContent = touchDevice ? 'PCを起動' : 'E / PCを起動';
+        return false;
+      }
+      terminalProgress += dt;
+      button.disabled = true;
+      const percentage = Math.min(100, Math.floor(100 * terminalProgress / bootTime));
+      const label = '接続中 ' + percentage + '%';
+      if (button.textContent !== label) {
+        button.textContent = label;
+        terminal.updateScreen(pCnt, percentage);
+      }
+      return terminalProgress >= bootTime;
+    }
+
     function updateObjective() {
       const objective = pCnt >= 4 ? 'トンネル奥のPCへ戻る' : `部品を探す ${pCnt} / 4`;
       if (el('objective').textContent !== objective) el('objective').textContent = objective;
@@ -478,9 +534,16 @@ function boot() {
       const inTunnel = camera.position.z < -49;
       const exitX = inTunnel ? terminal.target.x : 0;
       const exitZ = inTunnel ? terminal.target.z : -51;
-      const hint = nearest
-        ? `${arrowTo(nearest.position.x, nearest.position.z)} 近い捜索地点：${nearest.userData.zone}`
-        : `${arrowTo(exitX, exitZ)} ${inTunnel ? 'トンネル奥のPC' : 'トンネル入口'}`;
+      let hint;
+      if (nearest) {
+        hint = navigationHelp
+          ? `${arrowTo(nearest.position.x, nearest.position.z)} 近い捜索地点：${nearest.userData.zone}`
+          : nearestDistance < 12 ? nearest.userData.zone + 'を捜索' : '道路脇の標識と目印を探す';
+      } else if (navigationHelp) {
+        hint = `${arrowTo(exitX, exitZ)} ${inTunnel ? 'トンネル奥のPC' : 'トンネル入口'}`;
+      } else {
+        hint = inTunnel ? '非常灯の先にPCがある' : '道路の先のトンネルへ';
+      }
       if (el('hud-hint').textContent !== hint) el('hud-hint').textContent = hint;
     }
 
@@ -490,7 +553,8 @@ function boot() {
       if (!running()) return;
       frameId = requestAnimationFrame(animate);
       const now = performance.now();
-      const dt = Math.min((now - lastT) / 1000, 0.05);
+      const frameSeconds = (now - lastT) / 1000;
+      const dt = Math.min(frameSeconds, 0.05);
       lastT = now;
       elapsed += dt;
       if (pickupUntil && elapsed >= pickupUntil) {
@@ -549,6 +613,9 @@ function boot() {
         if (eSt === 'C') {
           wTxt.style.display = 'block';
           wTxt.textContent = 'こくにいに追われている';
+        } else if (eSt === 'I') {
+          wTxt.style.display = 'block';
+          wTxt.textContent = 'こくにいが周囲を探っている';
         } else { wTxt.style.display='none'; }
       }
 
@@ -572,19 +639,6 @@ function boot() {
 
       updateObjective();
 
-      // クリア判定
-      if(pCnt>=4 && Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < 2.5) {
-        isClr=true;
-        footsteps.play('');
-        aEnv.pause();
-        chaseAudio.level(0);
-        unlockView();
-        document.body.dataset.mode = 'clear';
-        el('clear-stats').textContent = summary();
-        el('game-clear').style.display = 'grid';
-        return;
-      }
-
       camera.rotation.set(keys.pitch, keys.yaw, 0, 'YXZ');
       const oX = camera.position.x, oZ = camera.position.z;
       walkVector.set(tS, 0, -tF).clampLength(0, 1).applyAxisAngle(up, keys.yaw);
@@ -601,29 +655,51 @@ function boot() {
         footsteps.play(walkingOnRoad ? (sprinting ? 'run' : 'walk') : 'grass', !walkingOnRoad && sprinting ? 1.38 : 1);
       }
 
+      // クリア判定
+      if (updateTerminal(frameSeconds)) {
+        isClr=true;
+        footsteps.play('');
+        aEnv.pause();
+        chaseAudio.level(0);
+        unlockView();
+        document.body.dataset.mode = 'clear';
+        el('terminal-btn').style.display = 'none';
+        el('clear-stats').textContent = summary();
+        el('game-clear').style.display = 'grid';
+        return;
+      }
+
       // 👁️📈 こくにいAI
       const pVec = enemyOffset.subVectors(camera.position, enemy.position); pVec.y=0; const pDist = pVec.length();
 
       const currentChaseSpeed = 4.5 + pCnt * 0.52;
-      const detectRange = 16 + (pCnt * 4) + (light ? 8 : 0);
-
-      if(eSt==='P') {
-        if(pDist < detectRange) {
-          const angle = eDir.angleTo(enemyMove.copy(pVec).normalize());
-          if(angle < Math.PI / 3 || pDist < 8) eSt='C';
-        }
-      } else if(eSt==='C') {
-        if(pDist > detectRange + 8) { eSt='P'; patrolTarget(); }
-      }
-
-      const moveDir = eSt === 'C' ? enemyMove.copy(pVec) : enemyMove.subVectors(pTgt, enemy.position).setY(0);
-      if (eSt === 'C' && (camera.position.z < -49) !== (enemy.position.z < -49) && Math.abs(enemy.position.x) >= 4) {
-        // The chase crosses the cliff through the tunnel mouth.
+      const detectRange = 13 + pCnt * 2 + (light ? 10 : 0);
+      const hearingRange = connecting ? 40 : moved && isMv ? (sprinting ? 21 : 6.5) : 0;
+      const relevantDistance = Math.max(detectRange, hearingRange, 2);
+      const blocked = pDist <= relevantDistance && pathOccluded(
+        enemy.position.x, enemy.position.z, camera.position.x, camera.position.z, tunnelBarriers, colls
+      );
+      const bearing = eDir.angleTo(enemyMove.copy(pVec).normalize());
+      const canSee = !blocked && pDist < detectRange && (bearing < Math.PI / 3.2 || pDist < 5.5);
+      const heard = pDist < hearingRange * (blocked ? .36 : 1);
+      const previousState = eSt;
+      eSt = updatePursuit(pursuit, {
+        dt, visible: canSee, heard, x: camera.position.x, z: camera.position.z,
+        reached: Math.hypot(pursuit.x - enemy.position.x, pursuit.z - enemy.position.z) < 1.25
+      });
+      if (eSt === 'P' && (previousState !== 'P' || enemy.position.distanceTo(pTgt) < 1.5)) patrolTarget();
+      const targetX = eSt === 'P' ? pTgt.x : pursuit.x;
+      const targetZ = eSt === 'P' ? pTgt.z : pursuit.z;
+      const moveDir = enemyMove.set(targetX - enemy.position.x, 0, targetZ - enemy.position.z);
+      if (eSt !== 'P' && (targetZ < -49) !== (enemy.position.z < -49) && Math.abs(enemy.position.x) >= 4) {
         moveDir.set(-enemy.position.x, 0, -47 - enemy.position.z);
       }
-      moveDir.normalize();
-      if(eSt==='P' && enemy.position.distanceTo(pTgt)<1.5) patrolTarget();
-      const enemyStep = (eSt === 'C' ? currentChaseSpeed : 2.1) * dt;
+      if (moveDir.lengthSq() < .1 && eSt === 'I') {
+        eDir.applyAxisAngle(up, dt * 1.8);
+      } else {
+        moveDir.normalize();
+      }
+      const enemyStep = (eSt === 'C' ? currentChaseSpeed : eSt === 'I' ? 3.15 : 2.1) * dt;
       const [enemyX, enemyZ] = sweepRoadWalls(
         enemy.position.x, enemy.position.z,
         enemy.position.x + moveDir.x * enemyStep, enemy.position.z + moveDir.z * enemyStep, tunnelBarriers
@@ -631,14 +707,14 @@ function boot() {
       enemy.position.x = enemyX;
       enemy.position.z = enemyZ;
       enemy.position.y = 1.85;
-      eDir.copy(moveDir);
+      if (moveDir.lengthSq() > 0) eDir.copy(moveDir);
 
       const chasing = eSt === 'C';
       const tension = 1 - THREE.MathUtils.clamp(pDist / 36, 0, 1);
       chaseAudio.level(chasing && !muted ? .43 + tension * .4 : 0);
       aEnv.volume = THREE.MathUtils.lerp(aEnv.volume, chasing ? .12 : .5, Math.min(1, dt * 5));
 
-      if(pDist<1.5){ triggerGameOver("こくにいに捕まった！"); }
+      if(pDist<1.5 && !blocked){ triggerGameOver("こくにいに捕まった！"); }
       renderer.render(scene, camera);
     }
 
