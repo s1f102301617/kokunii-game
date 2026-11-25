@@ -76,8 +76,15 @@ function boot() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0e1b29);
     scene.fog = new THREE.FogExp2(0x15222b, 0.026);
-    const camera = new THREE.PerspectiveCamera(78, innerWidth/innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true }); document.body.appendChild(renderer.domElement);
+    const walkFov = 78;
+    const sprintFov = 88;
+    const walkSpeed = 4.2;
+    const sprintSpeed = 8.4;
+    const camera = new THREE.PerspectiveCamera(walkFov, innerWidth/innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    document.body.appendChild(renderer.domElement);
     function resize() {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -92,7 +99,7 @@ function boot() {
     const moonlight = new THREE.DirectionalLight(0xa9c9e8, .75);
     moonlight.position.set(45, 54, -120);
     scene.add(moonlight);
-    const flash = new THREE.SpotLight(0xffe9c8, 7, 53, Math.PI / 5.2, .76, 1.7); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
+    const flash = new THREE.SpotLight(0xffe9c8, 4.5, 53, Math.PI / 5.2, .76, 1.7); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
     const lLight = new THREE.PointLight(0xfffae6, 0.15, 5); camera.add(lLight); scene.add(camera);
 
     function setLight(on) {
@@ -149,7 +156,7 @@ function boot() {
 
     // マテリアル定義
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: .98});
-    const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .025, roughness: .62});
+    const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .012, roughness: .62});
     const mGrd = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.5, roughness: 0.6}), mRust = new THREE.MeshStandardMaterial({color: 0x5a2d18, roughness: 0.9});
     const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
@@ -183,9 +190,6 @@ function boot() {
 
     // 🗺️ ランドマーク（廃車・井戸）
     const colls = [];
-    const carMat = new THREE.MeshStandardMaterial({color:0x881111, roughness:0.8});
-    addM(new THREE.BoxGeometry(2.2, 1.2, 4.2), carMat, -25, 0.6, 15, 0, 0.4, 0.1);
-    addM(new THREE.BoxGeometry(1.8, 0.8, 2.2), carMat, -25, 1.4, 14.5, 0, 0.4, 0.1);
     colls.push({x: -25, z: 15, r: 2.2});
 
     const wellMat = new THREE.MeshStandardMaterial({color:0x444444, roughness:0.9});
@@ -236,16 +240,7 @@ function boot() {
     entryGlow.position.set(0, 3, -48);
     scene.add(entryGlow);
 
-    const deskM = new THREE.MeshStandardMaterial({color:0x333333, roughness:0.7});
-    addM(new THREE.BoxGeometry(2.4, 0.1, 1.2), deskM, 0, 1.0, -83.5);
-    addM(new THREE.BoxGeometry(0.1, 1.0, 1.0), deskM, -1.1, 0.5, -83.5);
-    addM(new THREE.BoxGeometry(0.1, 1.0, 1.0), deskM, 1.1, 0.5, -83.5);
-
-    const pcM = new THREE.MeshStandardMaterial({color:0x222222, roughness:0.6});
-    addM(new THREE.BoxGeometry(0.9, 0.05, 0.6), pcM, 0, 1.075, -83.3);
-    const pcMon = addM(new THREE.BoxGeometry(0.9, 0.6, 0.05), pcM, 0, 1.35, -83.55, -0.1);
-    addM(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshStandardMaterial({color:0xffffff, emissive:0x0088ff, emissiveIntensity: 0.8}), 0, 1.35, -83.52, -0.1);
-    const pcLight = new THREE.PointLight(0x00aaff, 1.0, 5); pcLight.position.set(0, 1.5, -83.0); scene.add(pcLight);
+    const terminal = makeForestProps(scene);
 
     // 🌲 リアル針葉樹
     // Each part has its own searchable area, with a safe fallback off the obstacle line.
@@ -297,6 +292,7 @@ function boot() {
     // 変数定義
     let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
     let headBobTime = 0;
+    let sprintBlend = 0;
     const keys = { yaw: 0, pitch: 0 };
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
 
@@ -497,8 +493,8 @@ function boot() {
         if (distance < nearestDistance) { nearest = part; nearestDistance = distance; }
       }
       const inTunnel = camera.position.z < -49;
-      const exitX = inTunnel ? pcMon.position.x : 0;
-      const exitZ = inTunnel ? pcMon.position.z : -51;
+      const exitX = inTunnel ? terminal.target.x : 0;
+      const exitZ = inTunnel ? terminal.target.z : -51;
       const hint = nearest
         ? `${arrowTo(nearest.position.x, nearest.position.z)} 近い捜索地点：${nearest.userData.zone}`
         : `${arrowTo(exitX, exitZ)} ${inTunnel ? 'トンネル奥のPC' : 'トンネル入口'}`;
@@ -528,12 +524,20 @@ function boot() {
       const sprintRequested = isDash || keys.ShiftLeft || keys.ShiftRight;
       if (!sprintRequested) sprintExhausted = false;
       const sprinting = sprintRequested && !sprintExhausted && stam > 0 && isMv;
-      const spd = sprinting ? 7.2 : 4.2;
+      const sprintResponse = sprinting ? 8 : 11;
+      sprintBlend = THREE.MathUtils.lerp(sprintBlend, sprinting ? 1 : 0, 1 - Math.exp(-dt * sprintResponse));
+      const speed = THREE.MathUtils.lerp(walkSpeed, sprintSpeed, sprintBlend);
+      const fov = reducedMotion ? walkFov : THREE.MathUtils.lerp(walkFov, sprintFov, sprintBlend);
+      if (Math.abs(camera.fov - fov) > .02) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
+      document.body.classList.toggle('sprinting', !reducedMotion && sprinting);
 
       // 🎥 ヘッドボブ（カメラ揺れ）
       if(isMv && !reducedMotion) {
-        headBobTime += dt * (sprinting ? 14 : 8);
-        camera.position.y = 1.8 + Math.sin(headBobTime) * (sprinting ? 0.08 : 0.04);
+        headBobTime += dt * THREE.MathUtils.lerp(8, 15, sprintBlend);
+        camera.position.y = 1.8 + Math.sin(headBobTime) * THREE.MathUtils.lerp(.035, .095, sprintBlend);
       } else { camera.position.y = 1.8; }
 
       // 👣 足音の完全制御（遅延・衝突バグ解消版）
@@ -561,12 +565,13 @@ function boot() {
       updateMeter('bat', batt);
       el('bat-lv').classList.toggle('low', batt <= 20);
       if (sprinting) {
-        stam = Math.max(0, stam - dt * 25);
+        stam = Math.max(0, stam - dt * 12.5);
         if (stam === 0) sprintExhausted = true;
       } else if (!sprintRequested) {
-        stam = Math.min(100, stam + dt * 15);
+        stam = Math.min(100, stam + dt * 23);
       }
       updateMeter('sta', stam);
+      el('sta-lv').classList.toggle('low', stam <= 25);
 
       const wTxt = el('warning-text');
       document.body.dataset.threat = String(eSt === 'C' || batt <= 0);
@@ -593,6 +598,7 @@ function boot() {
             if(!idx){ batt=100; setLight(true); showPickup('電池を交換した'); }
             else{
               pCnt++;
+              terminal.updateScreen(pCnt);
               showPickup(`部品を回収　${pCnt} / 4`);
               const pIcons = el('parts-icons').children;
               for(let j=0; j<4; j++) if(j < pCnt) pIcons[j].classList.add('active');
@@ -604,7 +610,7 @@ function boot() {
       updateObjective();
 
       // クリア判定
-      if(pCnt>=4 && Math.hypot(camera.position.x - pcMon.position.x, camera.position.z - pcMon.position.z) < 2.5) {
+      if(pCnt>=4 && Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < 2.5) {
         isClr=true;
         if(activeStep) activeStep.pause();
         aEnv.pause();
@@ -619,7 +625,7 @@ function boot() {
       camera.rotation.set(keys.pitch, keys.yaw, 0, 'YXZ');
       const oX = camera.position.x, oZ = camera.position.z;
       walkVector.set(tS, 0, -tF).clampLength(0, 1).applyAxisAngle(up, keys.yaw);
-      camera.position.addScaledVector(walkVector, spd * dt);
+      camera.position.addScaledVector(walkVector, speed * dt);
 
       for(let t of colls){ let dx=camera.position.x-t.x, dz=camera.position.z-t.z, d=Math.hypot(dx,dz), minD=t.r+0.3; if(d>0 && d<minD) { camera.position.x+=(dx/d)*(minD-d); camera.position.z+=(dz/d)*(minD-d); } }
       if(camera.position.z<60 && camera.position.z>-50 && !isGap(camera.position.z)) { if(oX>=-5&&oX<=5) camera.position.x=Math.max(-5,Math.min(5,camera.position.x)); else camera.position.x=oX>5?Math.max(5.3,camera.position.x):Math.min(-5.3,camera.position.x); }
