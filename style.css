@@ -102,3 +102,15 @@ body[data-threat="true"] .view-effects { background: radial-gradient(ellipse at 
   .panel { padding: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .meter-fill { transition: none; } }
+#rotate-screen { z-index: 45; }
+#rotate-screen.visible { display: grid; }
+#rotate-hint { color: var(--quiet); line-height: 1.65; }
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  #ui-top-left { width: min(270px, 44vw); left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); }
+  .mission-display, .meter-grid { padding: .42rem .58rem; }
+  #warning-text { top: max(10px, env(safe-area-inset-top)); left: auto; right: calc(max(14px, env(safe-area-inset-right)) + 54px); transform: none; }
+  #light-btn, #dash-btn { min-height: 44px; }
+  #light-btn { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 53px); }
+  #dash-btn { bottom: max(12px, env(safe-area-inset-bottom)); }
+  #pickup-notice { bottom: max(16px, env(safe-area-inset-bottom)); }
+}

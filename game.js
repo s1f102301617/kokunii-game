@@ -297,6 +297,9 @@ function boot() {
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
 
     const touchDevice = navigator.maxTouchPoints > 0;
+    const touchPrimary = matchMedia('(pointer: coarse)');
+    const portrait = matchMedia('(orientation: portrait)');
+    const needsLandscape = () => touchDevice && touchPrimary.matches && portrait.matches;
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let paused = false;
     let sprintExhausted = false;
@@ -334,7 +337,18 @@ function boot() {
       el('pause-screen').style.display = 'grid';
       el('resume-btn').focus();
     }
+    function updateOrientation() {
+      const rotate = needsLandscape() && !isOver && !isClr;
+      if (rotate) pause();
+      el('rotate-screen').classList.toggle('visible', rotate);
+      el('rotate-hint').textContent = isRun
+        ? '捜索を中断しました。横に戻したら「再開する」を押してください。'
+        : '横にすると捜索を始められます。';
+      el('start-btn').disabled = rotate;
+      el('resume-btn').disabled = rotate;
+    }
     function resume(event) {
+      if (needsLandscape()) return;
       chaseAudio.unlock();
       paused = false;
       document.body.dataset.mode = 'play';
@@ -394,7 +408,7 @@ function boot() {
       pTgt.set((Math.random() - 0.5) * 145, 1.85, -40 + Math.random() * 142);
     }
     el('start-btn').onclick = event => {
-      if (isRun) return;
+      if (isRun || needsLandscape()) return;
       isRun = true;
       camera.position.set(0, 1.8, 25);
       setLight(true);
@@ -692,6 +706,11 @@ function boot() {
     camera.lookAt(9, 6, -48);
     setLight(false);
     resize();
+    for (const media of [portrait, touchPrimary]) {
+      if (media.addEventListener) media.addEventListener('change', updateOrientation);
+      else media.addListener(updateOrientation);
+    }
+    updateOrientation();
 }
 
 try {
