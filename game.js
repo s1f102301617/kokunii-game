@@ -65,9 +65,34 @@ function boot() {
         }
       }
     }, 1, 23);
-    const texConc = makeTex(256,256, ctx=>{ ctx.fillStyle='#1c1c20'; ctx.fillRect(0,0,256,256); for(let i=0;i<8000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*30)},${~~(Math.random()*30)},${~~(Math.random()*30)},0.25)`; ctx.fillRect(Math.random()*256,Math.random()*256,2,2); }}, 2,6);
+    const texConc = makeTex(512, 512, ctx => {
+      ctx.fillStyle = '#464944';
+      ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 220; i++) {
+        const x = (i * 113.7) % 512, y = (i * 77.3) % 512;
+        const r = 9 + (i * 13 % 47);
+        const stain = ctx.createRadialGradient(x, y, 0, x, y, r);
+        stain.addColorStop(0, i % 3 ? '#252d265a' : '#84715c46');
+        stain.addColorStop(1, '#252d2600');
+        ctx.fillStyle = stain;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (let i = 0; i < 30; i++) {
+        const x = (i * 173.7) % 512, y = (i * 97.4) % 390;
+        const length = 22 + (i * 17 % 96), width = 2 + i % 8;
+        const drip = ctx.createLinearGradient(0, y, 0, y + length);
+        drip.addColorStop(0, i % 4 ? '#222e2655' : '#8e624860');
+        drip.addColorStop(1, '#222e2600');
+        ctx.fillStyle = drip;
+        ctx.fillRect(x, y, width, length);
+      }
+      for (let i = 0; i < 8000; i++) {
+        ctx.fillStyle = i % 2 ? '#20262250' : '#aca28e44';
+        ctx.fillRect(Math.random()*512, Math.random()*512, 1 + i % 3, 1 + i % 2);
+      }
+    });
+    texConc.wrapS = texConc.wrapT = THREE.RepeatWrapping;
     const texWarn = makeTex(512,128, ctx=>{ ctx.fillStyle='#222225'; ctx.fillRect(0,0,512,128); ctx.fillStyle='#9e7308'; for(let i=-512; i<1024; i+=64){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+32,0); ctx.lineTo(i-32,128); ctx.lineTo(i-64,128); ctx.fill(); } });
-    const texCliff = makeTex(512,512, ctx=>{ ctx.fillStyle='#0a0d08'; ctx.fillRect(0,0,512,512); for(let i=0;i<35000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*20)},${~~(Math.random()*20)+2},${~~(Math.random()*20)},0.7)`; ctx.fillRect(Math.random()*512,Math.random()*512,1.5+Math.random()*3,1.5+Math.random()*3); } ctx.strokeStyle='#040503'; for(let i=0;i<40;i++){ ctx.lineWidth=1+Math.random()*4; ctx.beginPath(); let cx=Math.random()*512,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<8;j++){ cx+=(Math.random()-0.5)*70; cy+=(Math.random()-0.5)*70; ctx.lineTo(cx,cy); } ctx.stroke(); }}, 4,2);
     const texFence = makeTex(128,128, ctx=>{ ctx.strokeStyle='#7a7c78'; ctx.lineWidth=2; ctx.beginPath(); for(let i=-128; i<=256; i+=16){ ctx.moveTo(i,0); ctx.lineTo(i+128,128); ctx.moveTo(i+128,0); ctx.lineTo(i,128); } ctx.stroke(); });
 
     // 3Dシーン構築
@@ -155,7 +180,7 @@ function boot() {
     // マテリアル定義
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: .98});
     const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .012, roughness: .62});
-    const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
+    const mCon = new THREE.MeshStandardMaterial({map: texConc, bumpMap: texConc, bumpScale: .009, roughness: .91, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
 
     // 地形・道路
@@ -185,23 +210,7 @@ function boot() {
     const scenery = buildRecoveryScenery(scene);
     colls.push({x: 30, z: -10, r: 1.6});
 
-    // 山肌
-    function buildRidge(profile, bottom, depth, z) {
-      const shape = new THREE.Shape();
-      shape.moveTo(profile[0][0], bottom);
-      for (const [x, height] of profile) shape.lineTo(x, height);
-      shape.lineTo(profile[profile.length - 1][0], bottom);
-      shape.closePath();
-      const rock = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
-      const positions = rock.attributes.position;
-      for (let i = 0; i < positions.count; i++) {
-        rock.attributes.uv.setXY(i, (positions.getX(i) + positions.getZ(i)) / 16, positions.getY(i) / 13);
-      }
-      addM(rock, mClf, 0, 0, z);
-    }
-    buildRidge([[-91, 17], [-77, 29], [-65, 26], [-50, 38], [-35, 34], [-24, 27], [-14, 31], [-6, 18]], 0, 44, -94);
-    buildRidge([[6, 18], [15, 26], [27, 24], [40, 33], [55, 28], [69, 31], [87, 17]], 0, 44, -94);
-    buildRidge([[-7, 21], [-3, 17], [0, 22], [5, 19], [7, 22]], 8, 42, -94);
+    buildMountainCut(scene);
 
     const barriers = buildRoadStructures(scene, mCon, mRoad, new THREE.MeshStandardMaterial({ map: texWarn, roughness: .8 }));
     barriers.push({ minX: -5, maxX: 5, minZ: 64.9, maxZ: 65.1 });

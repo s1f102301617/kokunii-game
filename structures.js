@@ -1,6 +1,47 @@
 const tunnelLayout = { mouth: -50, back: -85.5, halfWidth: 5, spring: 2 };
 const railRuns = [[-48, -35], [-20, 0], [18, 35], [60, 117]];
 
+// The road cut exposes fractured rock near the mouth, with soil and moss higher up.
+function buildMountainCut(scene) {
+  const vertices = [], colors = [], faces = [];
+  const moss = new THREE.Color(0x303927), stone = new THREE.Color(0x666459);
+  const color = new THREE.Color();
+  const width = 96, depth = 28;
+
+  for (let row = 0; row <= depth; row++) {
+    const slope = row / depth;
+    for (let col = 0; col <= width; col++) {
+      const seed = col * 127.1 + row * 311.7;
+      const jitter = Math.sin(seed) * Math.cos(seed * .71);
+      const x = (col - width/2) * 2.6 + jitter * .9;
+      const hillside = Math.min(1, Math.max(0, (Math.abs(x) - 5.4) / 15));
+      const peaks = 18 + 6*Math.sin(x*.077) + 4*Math.sin(x*.19) + 2*Math.cos(x*.37);
+      const front = -50.4 - hillside * (1.6 + 1.4 * Math.sin(x*.28));
+      const strata = Math.sin(row*2.47 + x*.32 + Math.sin(x*.23)*2);
+      const z = front - slope*61 + hillside * (strata*.57 + jitter*.8);
+      const roof = 8.2 + (peaks*.7 + 2)*Math.sin(slope*Math.PI*.81);
+      const cut = (peaks + 4)*Math.sin(slope*Math.PI*.87)**.53;
+      const y = THREE.MathUtils.lerp(roof, cut, hillside) +
+        (strata*.72 + jitter*.85)*hillside*Math.sin(slope*Math.PI);
+      vertices.push(x, y, z);
+      color.copy(stone).lerp(moss, THREE.MathUtils.clamp(slope*.95 + jitter*.28, 0, 1));
+      color.multiplyScalar(.77 + strata*.13 + jitter*.14);
+      colors.push(color.r, color.g, color.b);
+      if (row > 0 && col > 0) {
+        const i = row*(width+1) + col;
+        faces.push(i-width-2, i-width-1, i, i-width-2, i, i-1);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(faces);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshStandardMaterial({vertexColors:true, roughness:1, flatShading:true, side:THREE.DoubleSide});
+  scene.add(new THREE.Mesh(geometry, material));
+}
+
 function buildRoadStructures(scene, concrete, asphalt, warning) {
   const { mouth, back, halfWidth, spring } = tunnelLayout;
   const obstacles = [];
@@ -46,11 +87,17 @@ function buildRoadStructures(scene, concrete, asphalt, warning) {
   // The portal's visible opening and its collision use the same inner width.
   const sideWidth = .52;
   const portalFront = mouth + .45;
-  wall(concrete, -halfWidth-sideWidth, -halfWidth, back, portalFront, spring);
-  wall(concrete, halfWidth, halfWidth+sideWidth, back, portalFront, spring);
+  const lining = concrete.clone();
+  lining.map = concrete.map.clone();
+  lining.map.repeat.set(6, 1);
+  lining.bumpMap = lining.map;
+  wall(lining, -halfWidth-sideWidth, -halfWidth, back, portalFront, spring);
+  wall(lining, halfWidth, halfWidth+sideWidth, back, portalFront, spring);
   wall(concrete, -halfWidth-.52, halfWidth+.52, back-.45, back, 7.1);
-  wall(concrete, -22, -halfWidth, mouth, portalFront, 7.7);
-  wall(concrete, halfWidth, 22, mouth, portalFront, 7.7);
+  obstacles.push(
+    {minX:-22,maxX:-halfWidth,minZ:mouth,maxZ:portalFront},
+    {minX:halfWidth,maxX:22,minZ:mouth,maxZ:portalFront}
+  );
   // Cliff and boundary fence continue the entrance plane outside its concrete wings.
   obstacles.push(
     {minX:-130,maxX:-22,minZ:back,maxZ:mouth+.12},
@@ -80,12 +127,32 @@ function buildRoadStructures(scene, concrete, asphalt, warning) {
     mesh(geom, material, 0,0,0);
   }
 
+  const recess = mat(0x242824, .98);
+  recess.side = THREE.DoubleSide;
+  const trim = concrete.clone();
+  trim.color.setHex(0xadb0a1);
   vaultSegment(halfWidth+.56, halfWidth, back, portalFront, concrete);
+  vaultSegment(halfWidth+.76, halfWidth-.04, mouth-.18, portalFront+.26, trim);
+  vaultSegment(halfWidth+.24, halfWidth-.08, portalFront+.24, portalFront+.34, recess);
+  for (const side of [-1,1]) {
+    box(trim, side*(halfWidth+.34), spring/2, portalFront+.13, .76, spring, .58);
+    for (let tier=0; tier<6; tier++) {
+      const reach = 16.4 - tier * 2.47;
+      box(concrete, side*(halfWidth+.69+reach/2), .59+tier*1.19, portalFront+.12-tier*.035, reach, 1.20, .46);
+    }
+  }
   for (let z=mouth-3; z>back+1; z-=6) {
-    vaultSegment(halfWidth, halfWidth-.18, z-.11, z+.11, concrete);
-    for (const side of [-1,1]) box(gutter, side*(halfWidth-.04), 1, z, .13, 2, .22);
+    vaultSegment(halfWidth, halfWidth-.035, z-.035, z+.035, recess);
+    for (const side of [-1,1]) {
+      box(recess, side*(halfWidth-.018), 1, z, .04, 2, .07);
+      box(steel, side*4.93, 1.47, z-.45, .12, .16, .08);
+      const drain = box(recess, side*4.76, .267, z-1.3, .28, .018, .45);
+      for (let slot=-2; slot<=2; slot++) box(steel, drain.position.x,.28,drain.position.z+slot*.073,.24,.008,.015);
+    }
   }
   const tunnelRoad = asphalt.clone();
+  tunnelRoad.bumpScale = .003;
+  tunnelRoad.roughness = .81;
   tunnelRoad.map = asphalt.map.clone();
   tunnelRoad.map.repeat.set(1, 4);
   tunnelRoad.bumpMap = tunnelRoad.map;
@@ -93,10 +160,19 @@ function buildRoadStructures(scene, concrete, asphalt, warning) {
   floor.rotation.x = -Math.PI/2;
   for (const side of [-1,1]) {
     box(gutter, side*4.79,.13,(mouth+back)/2,.38,.26,mouth-back);
-    box(rust, side*4.93,1.2,(mouth+back)/2,.055,.055,mouth-back);
+    box(rust, side*4.93,1.47,(mouth+back)/2,.062,.062,mouth-back);
     box(warning, side*5.13,2.25,portalFront+.022,.48,2.4,.09);
   }
-  box(steel,0,7.52,portalFront+.05,4.8,.54,.11);
+  const plaque = document.createElement('canvas');
+  plaque.width = 512; plaque.height = 96;
+  const ink = plaque.getContext('2d');
+  ink.fillStyle = '#343c38'; ink.fillRect(0, 0, 512, 96);
+  ink.strokeStyle = '#787e6d'; ink.lineWidth = 3; ink.strokeRect(8, 8, 496, 80);
+  ink.fillStyle = '#b1ac91'; ink.font = 'bold 52px sans-serif'; ink.textAlign = 'center';
+  ink.fillText('旧林道隧道', 256, 67);
+  const sign = new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(plaque), roughness:.85});
+  box(steel,0,7.86,portalFront+.05,3.95,.68,.11);
+  mesh(new THREE.PlaneGeometry(3.82,.64),sign,0,7.86,portalFront+.109);
   for (const z of [mouth+.15,-57.5,-68,-78.5]) {
     const x = z === mouth+.15 ? 3.8 : -4.71;
     box(rust,x,3.1,z,.42,.40,.32);
