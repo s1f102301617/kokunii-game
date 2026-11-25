@@ -1,5 +1,5 @@
 /* The chase track is unlocked with Start/Resume, then mixed by the game. */
-function createChaseAudio(url) {
+function createChaseAudio(url, getContext) {
   let context;
   let gain;
   let clip;
@@ -20,15 +20,14 @@ function createChaseAudio(url) {
   }
 
   function unlock() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
     if (!context) {
       try {
-        context = new AudioContext();
+        context = getContext();
       } catch (error) {
         console.warn('Could not open chase audio', error);
         return;
       }
+      if (!context) return;
       gain = context.createGain();
       gain.gain.value = 0;
       gain.connect(context.destination);

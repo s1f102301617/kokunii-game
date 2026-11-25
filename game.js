@@ -3,18 +3,16 @@ function boot() {
 
     // 🎵 音声処理（完全にクリーンで安全な設計に書き直し）
     const aEnv = new Audio('夏の田舎の夜.mp3'); aEnv.volume = 0.5;
-    const chaseAudio = createChaseAudio('bgm.mp3');
+    let audioContext;
+    function getAudioContext() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!audioContext && AudioContext) audioContext = new AudioContext();
+      return audioContext;
+    }
+    const chaseAudio = createChaseAudio('bgm.mp3', getAudioContext);
     const aOver = new Audio('夏の山2.mp3');
-    const aWalk = new Audio('アスファルトの上を歩く1.mp3'); aWalk.volume = 0.6;
-    const aDash = new Audio('アスファルトの上を歩く2.mp3'); aDash.volume = 0.9;
-    const aGrass = new Audio('芝生の上を歩く.mp3'); aGrass.volume = 0.7;
-
-    // バグの原因となるWeb Audio APIを排除し、純粋なループイベントを設定
-    [aEnv, aWalk, aDash, aGrass].forEach(a => {
-      a.loop = true;
-    });
-
-    let activeStep = null;
+    const footsteps = createFootsteps(getAudioContext);
+    aEnv.loop = true;
 
     // 🎨 テクスチャ生成
     function makeTex(w, h, draw, repX=1, repY=1) {
@@ -157,19 +155,11 @@ function boot() {
     // マテリアル定義
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: .98});
     const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .012, roughness: .62});
-    const mGrd = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.5, roughness: 0.6}), mRust = new THREE.MeshStandardMaterial({color: 0x5a2d18, roughness: 0.9});
     const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
 
     // 地形・道路
     addM(new THREE.PlaneGeometry(500,500), mGrass, 0,0,0, -Math.PI/2); addM(new THREE.PlaneGeometry(10,240), mRoad, 0,0.02,10, -Math.PI/2);
-
-    // ガードレール
-    const isGap = z => [{min:35,max:60},{min:0,max:18},{min:-35,max:-20}].some(g=> z>=g.min && z<=g.max);
-    for (let z=-45; z<=120; z+=6) {
-      if(isGap(z)){ if(Math.random()>0.3) addM(new THREE.BoxGeometry(0.2,0.5,4.5), mRust, Math.random()>0.5?5.3:-5.3, 0.2, z, 0, (Math.random()-0.5)*0.8, (Math.random()-0.5)*1.2); continue; }
-      addM(new THREE.BoxGeometry(0.15,0.5,5.8), mGrd, -5.2,0.8,z); addM(new THREE.BoxGeometry(0.15,0.5,5.8), mGrd, 5.2,0.8,z);
-    }
 
     // バリケード
     const bGrp = new THREE.Group(); bGrp.position.set(0,0,65); bGrp.add(new THREE.Mesh(new THREE.BoxGeometry(10,1.2,0.2), new THREE.MeshStandardMaterial({color:0x992222,roughness:0.7})).translateY(1.2));
@@ -214,32 +204,10 @@ function boot() {
     buildRidge([[6, 18], [15, 26], [27, 24], [40, 33], [55, 28], [69, 31], [87, 17]], 0, 44, -94);
     buildRidge([[-7, 21], [-3, 17], [0, 22], [5, 19], [7, 22]], 8, 42, -94);
 
-    // トンネル内部構造
-    const tunnelGroup = new THREE.Group(); tunnelGroup.position.set(0, 0, -50);
-    const arch = addM(new THREE.CylinderGeometry(5,5,35,32,1,true,0,Math.PI), mCon, 0,2,-67.5, Math.PI/2,Math.PI/2);
-    addM(new THREE.BoxGeometry(0.5,2,35), mCon, -5.25,1,-67.5); addM(new THREE.BoxGeometry(0.5,2,35), mCon, 5.25,1,-67.5);
-    addM(new THREE.BoxGeometry(11,8,1), mCon, 0,4,-85.5);
+    const barriers = buildRoadStructures(scene, mCon, mRoad, new THREE.MeshStandardMaterial({ map: texWarn, roughness: .8 }));
+    barriers.push({ minX: -5, maxX: 5, minZ: 64.9, maxZ: 65.1 });
 
-    // トンネル入口
-    const shp = new THREE.Shape(); shp.moveTo(-20,0); shp.lineTo(20,0); shp.lineTo(20,15); shp.lineTo(-20,15); shp.lineTo(-20,0);
-    const hl = new THREE.Path(); hl.moveTo(-5,0); hl.lineTo(-5,2); hl.absarc(0,2,5,Math.PI,0,true); hl.lineTo(5,0); hl.lineTo(-5,0); shp.holes.push(hl);
-    const fGeo = new THREE.ExtrudeGeometry(shp, {depth:0.5, bevelEnabled:false});
-    for(let i=0; i<fGeo.attributes.position.count; i++) fGeo.attributes.uv.setXY(i, fGeo.attributes.position.getX(i)/8, fGeo.attributes.position.getY(i)/8);
-    addM(fGeo, mCon, 0,0,-50.25);
-    addM(new THREE.BoxGeometry(1,9,1.5), mCon, -5.5,4.5,-49.5); addM(new THREE.BoxGeometry(1,9,1.5), mCon, 5.5,4.5,-49.5);
-    addM(new THREE.BoxGeometry(12,1.5,1.6), new THREE.MeshStandardMaterial({map: texWarn, roughness: 0.8}), 0,9.25,-49.5);
-
-    // 非常灯・PCデスク
-    [-58,-68,-78].forEach(z=>{ addM(new THREE.BoxGeometry(0.3,0.4,0.2), new THREE.MeshBasicMaterial({color:0xff6600}), -4.8,4,z); const l=new THREE.PointLight(0xff6600,1.5,12); l.position.set(-4.4,4,z); scene.add(l); });
-
-    const entryLamp = new THREE.MeshBasicMaterial({ color: 0xffb16b });
-    for (const x of [-4.3, 4.3]) {
-      addM(new THREE.BoxGeometry(.22, .6, .18), entryLamp, x, 2.6, -49.1);
-    }
-    const entryGlow = new THREE.PointLight(0xff9857, 1.6, 13);
-    entryGlow.position.set(0, 3, -48);
-    scene.add(entryGlow);
-
+    const tunnelBarriers = barriers.filter(wall => wall.minZ < -49);
     const terminal = makeForestProps(scene);
 
     // 🌲 リアル針葉樹
@@ -331,7 +299,7 @@ function boot() {
       frameId = null;
       clearInputs();
       unlockView();
-      if (activeStep) { activeStep.pause(); activeStep = null; }
+      footsteps.play('');
       aEnv.pause();
       chaseAudio.level(0);
       el('pause-screen').style.display = 'grid';
@@ -350,6 +318,7 @@ function boot() {
     function resume(event) {
       if (needsLandscape()) return;
       chaseAudio.unlock();
+      footsteps.unlock();
       paused = false;
       document.body.dataset.mode = 'play';
       lastT = performance.now();
@@ -380,12 +349,12 @@ function boot() {
     });
     el('view-cue').textContent = '画面クリックで視点操作。ロックできない場合はマウスでドラッグ。';
     el('pause-btn').addEventListener('click', pause);
-    const tracks = [aEnv, aOver, aWalk, aDash, aGrass];
+    const tracks = [aEnv, aOver];
     let muted = false;
     el('sound-btn').addEventListener('click', () => {
       muted = !muted;
       tracks.forEach(track => { track.muted = muted; });
-      if (muted) chaseAudio.level(0);
+      if (muted) { chaseAudio.level(0); footsteps.play(''); }
       el('sound-btn').textContent = muted ? '音声 OFF' : '音声 ON';
       el('sound-btn').setAttribute('aria-pressed', String(muted));
     });
@@ -554,26 +523,6 @@ function boot() {
         camera.position.y = 1.8 + Math.sin(headBobTime) * THREE.MathUtils.lerp(.035, .095, sprintBlend);
       } else { camera.position.y = 1.8; }
 
-      // 👣 足音の完全制御（遅延・衝突バグ解消版）
-      if(isMv) {
-        let onRoad = Math.abs(camera.position.x) <= 5.5;
-        let targetStep = onRoad ? (sprinting ? aDash : aWalk) : aGrass;
-
-        if(targetStep === aGrass) targetStep.playbackRate = sprinting ? 1.4 : 1.0;
-
-        if(activeStep !== targetStep) {
-          if(activeStep) activeStep.pause();
-          activeStep = targetStep;
-          activeStep.currentTime = 0; // 最初から再生
-          activeStep.play().catch(()=>{});
-        }
-      } else {
-        if(activeStep) {
-          activeStep.pause();
-          activeStep = null;
-        }
-      }
-
       // UI更新
       if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); } }
       updateMeter('bat', batt);
@@ -626,7 +575,7 @@ function boot() {
       // クリア判定
       if(pCnt>=4 && Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < 2.5) {
         isClr=true;
-        if(activeStep) activeStep.pause();
+        footsteps.play('');
         aEnv.pause();
         chaseAudio.level(0);
         unlockView();
@@ -642,9 +591,15 @@ function boot() {
       camera.position.addScaledVector(walkVector, speed * dt);
 
       for(let t of colls){ let dx=camera.position.x-t.x, dz=camera.position.z-t.z, d=Math.hypot(dx,dz), minD=t.r+0.3; if(d>0 && d<minD) { camera.position.x+=(dx/d)*(minD-d); camera.position.z+=(dz/d)*(minD-d); } }
-      if(camera.position.z<60 && camera.position.z>-50 && !isGap(camera.position.z)) { if(oX>=-5&&oX<=5) camera.position.x=Math.max(-5,Math.min(5,camera.position.x)); else camera.position.x=oX>5?Math.max(5.3,camera.position.x):Math.min(-5.3,camera.position.x); }
-      if(camera.position.z<-49) { if(camera.position.x>-4.6 && camera.position.x<4.6) camera.position.z=Math.max(-84,camera.position.z); else { if(oZ>=-49) camera.position.z=-49; else camera.position.x=oX>0?Math.max(4.6,camera.position.x):Math.min(-4.6,camera.position.x); } }
-      camera.position.set(Math.max(-129,Math.min(129,camera.position.x)), camera.position.y, Math.max(-84,Math.min(129,camera.position.z)));
+      const [safeX, safeZ] = sweepRoadWalls(oX, oZ, camera.position.x, camera.position.z, barriers);
+      camera.position.set(Math.max(-129, Math.min(129, safeX)), camera.position.y, Math.max(-85, Math.min(129, safeZ)));
+      const moved = Math.hypot(camera.position.x - oX, camera.position.z - oZ) > dt * .4;
+      const walkingOnRoad = Math.abs(camera.position.x) <= 5;
+      if (muted || !isMv || !moved) {
+        footsteps.play('');
+      } else {
+        footsteps.play(walkingOnRoad ? (sprinting ? 'run' : 'walk') : 'grass', !walkingOnRoad && sprinting ? 1.38 : 1);
+      }
 
       // 👁️📈 こくにいAI
       const pVec = enemyOffset.subVectors(camera.position, enemy.position); pVec.y=0; const pDist = pVec.length();
@@ -668,10 +623,13 @@ function boot() {
       }
       moveDir.normalize();
       if(eSt==='P' && enemy.position.distanceTo(pTgt)<1.5) patrolTarget();
-      enemy.position.addScaledVector(moveDir, (eSt === 'C' ? currentChaseSpeed : 2.1) * dt);
-      if (enemy.position.z < -49) {
-        enemy.position.x = THREE.MathUtils.clamp(enemy.position.x, -4.4, 4.4);
-      }
+      const enemyStep = (eSt === 'C' ? currentChaseSpeed : 2.1) * dt;
+      const [enemyX, enemyZ] = sweepRoadWalls(
+        enemy.position.x, enemy.position.z,
+        enemy.position.x + moveDir.x * enemyStep, enemy.position.z + moveDir.z * enemyStep, tunnelBarriers
+      );
+      enemy.position.x = enemyX;
+      enemy.position.z = enemyZ;
       enemy.position.y = 1.85;
       eDir.copy(moveDir);
 
@@ -687,7 +645,7 @@ function boot() {
     function triggerGameOver(reason) {
       isOver = true;
       document.body.dataset.mode = 'over';
-      if(activeStep) { activeStep.pause(); activeStep = null; }
+      footsteps.play('');
       aEnv.pause();
       chaseAudio.level(0);
 
