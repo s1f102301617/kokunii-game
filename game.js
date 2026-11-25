@@ -31,28 +31,79 @@ function boot() {
     const texFence = makeTex(128,128, ctx=>{ ctx.strokeStyle='#7a7c78'; ctx.lineWidth=2; ctx.beginPath(); for(let i=-128; i<=256; i+=16){ ctx.moveTo(i,0); ctx.lineTo(i+128,128); ctx.moveTo(i+128,0); ctx.lineTo(i,128); } ctx.stroke(); });
 
     // 3Dシーン構築
-    const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x030305, 0.045);
-    const camera = new THREE.PerspectiveCamera(90, innerWidth/innerHeight, 0.1, 1000);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e1b29);
+    scene.fog = new THREE.FogExp2(0x142431, 0.031);
+    const camera = new THREE.PerspectiveCamera(78, innerWidth/innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true }); document.body.appendChild(renderer.domElement);
     function resize() {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
       camera.updateProjectionMatrix();
+      if (!isRun) renderer.render(scene, camera);
     }
     window.addEventListener('resize', resize);
-    resize();
 
-    const ambLight = new THREE.AmbientLight(0x181822, 0.12); scene.add(ambLight);
-    const flash = new THREE.SpotLight(0xfffae6, 10, 55, Math.PI/3, 0.6, 1.8); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
+    const ambLight = new THREE.HemisphereLight(0x82a4bf, 0x323e35, 0.75);
+    scene.add(ambLight);
+    const moonlight = new THREE.DirectionalLight(0xa9c9e8, 0.55);
+    moonlight.position.set(45, 54, -120);
+    scene.add(moonlight);
+    const flash = new THREE.SpotLight(0xffe7b9, 9, 51, Math.PI / 4.5, 0.72, 1.65); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
     const lLight = new THREE.PointLight(0xfffae6, 0.15, 5); camera.add(lLight); scene.add(camera);
 
     function setLight(on) {
-      light = on; flash.visible = on; lLight.visible = on; ambLight.intensity = on ? 0.12 : 0.015;
-      el('light-btn').innerText = on ? 'ライト ON' : 'ライト OFF';
+      light = on;
+      flash.visible = on;
+      lLight.visible = on;
+      ambLight.intensity = on ? 0.75 : 0.42;
+      el('light-btn').textContent = on ? 'ライト ON' : 'ライト OFF';
+      el('light-btn').setAttribute('aria-pressed', String(on));
     }
 
     function addM(geo, mat, x, y, z, rx=0, ry=0, rz=0) { const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); scene.add(m); return m; }
+
+    const moonTexture = makeTex(128, 128, ctx => {
+      const halo = ctx.createRadialGradient(64, 64, 0, 64, 64, 63);
+      halo.addColorStop(0, 'rgba(210,232,229,.95)');
+      halo.addColorStop(.24, 'rgba(193,222,230,.85)');
+      halo.addColorStop(.28, 'rgba(147,195,222,.34)');
+      halo.addColorStop(1, 'rgba(147,195,222,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.fillStyle = '#dce8df';
+      ctx.beginPath(); ctx.arc(64, 64, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b9d1d1';
+      ctx.beginPath(); ctx.arc(68, 61, 7, 0, Math.PI * 2); ctx.fill();
+    });
+    const moon = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: moonTexture, transparent: true, depthWrite: false, fog: false
+    }));
+    moon.position.set(88, 86, -164);
+    moon.scale.set(63, 63, 1);
+    scene.add(moon);
+
+    // Thin mist at the road crossings, drawn with one shared texture.
+    const mistTexture = makeTex(128, 64, ctx => {
+      ctx.save();
+      ctx.scale(1, .5);
+      const gradient = ctx.createRadialGradient(64, 64, 5, 64, 64, 63);
+      gradient.addColorStop(0, 'rgba(155,189,198,.36)');
+      gradient.addColorStop(.45, 'rgba(126,171,185,.2)');
+      gradient.addColorStop(1, 'rgba(126,171,185,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.restore();
+    });
+    const mistMaterial = new THREE.SpriteMaterial({map: mistTexture, depthWrite: false, opacity: .58});
+    const mist = [[8, -29], [-13, -17], [13, 35], [-19, 49], [-25, -36]].map(([x, z]) => {
+      const sprite = new THREE.Sprite(mistMaterial);
+      sprite.position.set(x, 1.15, z);
+      sprite.scale.set(26, 3.4, 1);
+      scene.add(sprite);
+      return { sprite, x };
+    });
 
     // マテリアル定義
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: 0.95}), mRoad = new THREE.MeshStandardMaterial({map: texRoad, roughness: 0.9, metalness: 0});
@@ -99,7 +150,22 @@ function boot() {
     colls.push({x: 30, z: -10, r: 1.6});
 
     // 山肌
-    addM(new THREE.BoxGeometry(80,30,45), mClf, -46,15,-73); addM(new THREE.BoxGeometry(80,30,45), mClf, 46,15,-73); addM(new THREE.BoxGeometry(12,22,45), mClf, 0,19,-73);
+    function buildRidge(profile, bottom, depth, z) {
+      const shape = new THREE.Shape();
+      shape.moveTo(profile[0][0], bottom);
+      for (const [x, height] of profile) shape.lineTo(x, height);
+      shape.lineTo(profile[profile.length - 1][0], bottom);
+      shape.closePath();
+      const rock = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+      const positions = rock.attributes.position;
+      for (let i = 0; i < positions.count; i++) {
+        rock.attributes.uv.setXY(i, (positions.getX(i) + positions.getZ(i)) / 16, positions.getY(i) / 13);
+      }
+      addM(rock, mClf, 0, 0, z);
+    }
+    buildRidge([[-91, 17], [-77, 29], [-65, 26], [-50, 38], [-35, 34], [-24, 27], [-14, 31], [-6, 18]], 0, 44, -94);
+    buildRidge([[6, 18], [15, 26], [27, 24], [40, 33], [55, 28], [69, 31], [87, 17]], 0, 44, -94);
+    buildRidge([[-7, 21], [-3, 17], [0, 22], [5, 19], [7, 22]], 8, 42, -94);
 
     // トンネル内部構造
     const tunnelGroup = new THREE.Group(); tunnelGroup.position.set(0, 0, -50);
@@ -118,6 +184,14 @@ function boot() {
 
     // 非常灯・PCデスク
     [-58,-68,-78].forEach(z=>{ addM(new THREE.BoxGeometry(0.3,0.4,0.2), new THREE.MeshBasicMaterial({color:0xff6600}), -4.8,4,z); const l=new THREE.PointLight(0xff6600,1.5,12); l.position.set(-4.4,4,z); scene.add(l); });
+
+    const entryLamp = new THREE.MeshBasicMaterial({ color: 0xffb16b });
+    for (const x of [-4.3, 4.3]) {
+      addM(new THREE.BoxGeometry(.22, .6, .18), entryLamp, x, 2.6, -49.1);
+    }
+    const entryGlow = new THREE.PointLight(0xff9857, 1.6, 13);
+    entryGlow.position.set(0, 3, -48);
+    scene.add(entryGlow);
 
     const deskM = new THREE.MeshStandardMaterial({color:0x333333, roughness:0.7});
     addM(new THREE.BoxGeometry(2.4, 0.1, 1.2), deskM, 0, 1.0, -83.5);
@@ -229,6 +303,7 @@ function boot() {
     function pause() {
       if (!running()) return;
       paused = true;
+      document.body.dataset.mode = 'paused';
       if (frameId !== null) cancelAnimationFrame(frameId);
       frameId = null;
       clearInputs();
@@ -236,11 +311,12 @@ function boot() {
       if (activeStep) { activeStep.pause(); activeStep = null; }
       aEnv.pause();
       aChase.pause();
-      el('pause-screen').style.display = 'flex';
+      el('pause-screen').style.display = 'grid';
       el('resume-btn').focus();
     }
     function resume(event) {
       paused = false;
+      document.body.dataset.mode = 'play';
       lastT = performance.now();
       el('pause-screen').style.display = 'none';
       aEnv.play().catch(() => {});
@@ -269,6 +345,14 @@ function boot() {
     });
     el('view-cue').textContent = '画面クリックで視点操作。ロックできない場合はマウスでドラッグ。';
     el('pause-btn').addEventListener('click', pause);
+    const tracks = [aEnv, aChase, aOver, aWalk, aDash, aGrass];
+    let muted = false;
+    el('sound-btn').addEventListener('click', () => {
+      muted = !muted;
+      tracks.forEach(track => { track.muted = muted; });
+      el('sound-btn').textContent = muted ? '音声 OFF' : '音声 ON';
+      el('sound-btn').setAttribute('aria-pressed', String(muted));
+    });
     el('resume-btn').addEventListener('click', resume);
     window.addEventListener('blur', pause);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
@@ -291,6 +375,7 @@ function boot() {
       if (isRun) return;
       isRun = true;
       camera.position.set(0, 1.8, 25);
+      setLight(true);
       enemy.position.set(29, 1.85, -20);
       patrolTarget();
       spawnBattery();
@@ -352,6 +437,24 @@ function boot() {
     const enemyOffset = new THREE.Vector3();
     const enemyMove = new THREE.Vector3();
     let frameId = null;
+    let elapsed = 0;
+    let pickupUntil = 0;
+    function showPickup(message) {
+      const notice = el('pickup-notice');
+      notice.textContent = message;
+      notice.style.display = 'block';
+      pickupUntil = elapsed + 2.4;
+    }
+    function summary() {
+      const seconds = Math.floor(elapsed % 60);
+      return `部品 ${pCnt} / 4　捜索時間 ${Math.floor(elapsed / 60)}:${String(seconds).padStart(2, '0')}`;
+    }
+    function updateMeter(id, value) {
+      el(id + '-lv').style.width = value + '%';
+      const readout = el(id + '-value');
+      const label = Math.ceil(value) + '%';
+      if (readout.textContent !== label) readout.textContent = label;
+    }
     const directionArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
     function arrowTo(x, z) {
       const angle = Math.atan2(x - camera.position.x, camera.position.z - z) + keys.yaw;
@@ -384,6 +487,14 @@ function boot() {
       const now = performance.now();
       const dt = Math.min((now - lastT) / 1000, 0.05);
       lastT = now;
+      elapsed += dt;
+      if (pickupUntil && elapsed >= pickupUntil) {
+        el('pickup-notice').style.display = 'none';
+        pickupUntil = 0;
+      }
+      if (!reducedMotion) {
+        mist.forEach(({sprite, x}, i) => { sprite.position.x = x + Math.sin(elapsed * .22 + i) * 2; });
+      }
 
       const tF = mDir.f + (keys['KeyW']||keys['ArrowUp']?1:0) - (keys['KeyS']||keys['ArrowDown']?1:0);
       const tS = mDir.s + (keys['KeyD']||keys['ArrowRight']?1:0) - (keys['KeyA']||keys['ArrowLeft']?1:0);
@@ -421,27 +532,27 @@ function boot() {
 
       // UI更新
       if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); } }
-      const batLv = el('bat-lv'); batLv.style.width = batt + '%'; batLv.style.backgroundColor = batt > 20 ? '#0f0' : '#f00';
+      updateMeter('bat', batt);
+      el('bat-lv').classList.toggle('low', batt <= 20);
       if (sprinting) {
         stam = Math.max(0, stam - dt * 25);
         if (stam === 0) sprintExhausted = true;
       } else if (!sprintRequested) {
         stam = Math.min(100, stam + dt * 15);
       }
-      el('sta-lv').style.width = stam + '%';
+      updateMeter('sta', stam);
 
       const wTxt = el('warning-text');
+      document.body.dataset.threat = String(eSt === 'C' || batt <= 0);
       if(batt<=0){
-        noBatt+=dt; wTxt.style.color='#f33'; wTxt.style.display='block'; wTxt.innerText=`⚠️ 闇の中！ ${(Math.max(0,5-noBatt)).toFixed(1)}秒で急襲！`;
+        noBatt += dt; wTxt.style.display = 'block'; wTxt.textContent = `暗闇　${Math.max(0, 5 - noBatt).toFixed(1)}秒で急襲`;
         if(noBatt>=5){
           enemy.position.copy(camera.position).add(new THREE.Vector3(0,0,-1.2).applyAxisAngle(new THREE.Vector3(0,1,0), keys.yaw));
           triggerGameOver("暗闇の中で捕まった..."); return;
         }
       } else {
         noBatt=0;
-        if(pCnt>=4){ wTxt.style.color='#0ff'; wTxt.style.display='block'; wTxt.innerText='⚡ トンネル奥のPCを起動しろ！'; }
-        else if (eSt === 'C') {
-          wTxt.style.color = '#ffb6a1';
+        if (eSt === 'C') {
           wTxt.style.display = 'block';
           wTxt.textContent = 'こくにいに追われている';
         } else { wTxt.style.display='none'; }
@@ -453,9 +564,10 @@ function boot() {
           arr[i].rotation.y+=dt*(idx?3:2);
           if(Math.hypot(camera.position.x - arr[i].position.x, camera.position.z - arr[i].position.z) < 1.5){
             scene.remove(arr[i]); arr.splice(i,1);
-            if(!idx){ batt=100; setLight(true); }
+            if(!idx){ batt=100; setLight(true); showPickup('電池を交換した'); }
             else{
               pCnt++;
+              showPickup(`部品を回収　${pCnt} / 4`);
               const pIcons = el('parts-icons').children;
               for(let j=0; j<4; j++) if(j < pCnt) pIcons[j].classList.add('active');
             }
@@ -472,7 +584,9 @@ function boot() {
         aEnv.pause();
         aChase.pause();
         unlockView();
-        el('game-clear').style.display='flex';
+        document.body.dataset.mode = 'clear';
+        el('clear-stats').textContent = summary();
+        el('game-clear').style.display = 'grid';
         return;
       }
 
@@ -534,6 +648,7 @@ function boot() {
 
     function triggerGameOver(reason) {
       isOver = true;
+      document.body.dataset.mode = 'over';
       if(activeStep) { activeStep.pause(); activeStep = null; }
       aEnv.pause();
       aChase.pause();
@@ -544,8 +659,15 @@ function boot() {
 
       unlockView();
       el('death-reason').innerText = reason;
-      el('game-over').style.display = 'flex';
+      el('death-stats').textContent = summary();
+      el('game-over').style.display = 'grid';
     }
+
+    // Render the actual forest behind the title before entering the road.
+    camera.position.set(-2.6, 2.5, 32);
+    camera.lookAt(9, 6, -48);
+    setLight(false);
+    resize();
 }
 
 try {
