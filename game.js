@@ -3,14 +3,14 @@ function boot() {
 
     // 🎵 音声処理（完全にクリーンで安全な設計に書き直し）
     const aEnv = new Audio('夏の田舎の夜.mp3'); aEnv.volume = 0.5;
-    const aChase = new Audio('bgm.mp3'); aChase.volume = 0;
+    const chaseAudio = createChaseAudio('bgm.mp3');
     const aOver = new Audio('夏の山2.mp3');
     const aWalk = new Audio('アスファルトの上を歩く1.mp3'); aWalk.volume = 0.6;
     const aDash = new Audio('アスファルトの上を歩く2.mp3'); aDash.volume = 0.9;
     const aGrass = new Audio('芝生の上を歩く.mp3'); aGrass.volume = 0.7;
 
     // バグの原因となるWeb Audio APIを排除し、純粋なループイベントを設定
-    [aEnv, aChase, aWalk, aDash, aGrass].forEach(a => {
+    [aEnv, aWalk, aDash, aGrass].forEach(a => {
       a.loop = true;
     });
 
@@ -23,8 +23,50 @@ function boot() {
       if(repX!==1 || repY!==1){ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(repX,repY); }
       return t;
     }
-    const texGrass = makeTex(512,512, ctx=>{ ctx.fillStyle='#0a0f07'; ctx.fillRect(0,0,512,512); for(let i=0;i<15000;i++){ ctx.fillStyle=Math.random()>0.6?'#050804':(Math.random()>0.2?'#101a0d':'#17140e'); ctx.fillRect(Math.random()*512,Math.random()*512,2,3); }}, 40,40);
-    const texRoad = makeTex(256,512, ctx=>{ ctx.fillStyle='#141416'; ctx.fillRect(0,0,256,512); for(let i=0;i<8000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*25)},${~~(Math.random()*25)},${~~(Math.random()*25)},0.2)`; ctx.fillRect(Math.random()*256,Math.random()*512,2,2);} ctx.strokeStyle='#08080a'; ctx.lineWidth=2; for(let i=0;i<15;i++){ ctx.beginPath(); let cx=Math.random()*256,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<5;j++){ cx+=(Math.random()-0.5)*30; cy+=(Math.random()-0.5)*30; ctx.lineTo(cx,cy); } ctx.stroke(); } ctx.fillStyle='rgba(160,160,160,0.35)'; ctx.fillRect(122,40,12,160); ctx.fillRect(122,300,12,160); }, 1,20);
+    const texGrass = makeTex(512, 512, ctx => {
+      ctx.fillStyle = '#262923';
+      ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 380; i++) {
+        const x = Math.random() * 512, y = Math.random() * 512;
+        const radius = 3 + Math.random() * 25;
+        const spot = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        spot.addColorStop(0, i % 3 === 0 ? '#4b5137a0' : '#171c1999');
+        spot.addColorStop(1, '#171c1900');
+        ctx.fillStyle = spot;
+        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      }
+      for (let i = 0; i < 16000; i++) {
+        ctx.fillStyle = ['#6d665040', '#94907535', '#25231b60', '#41472b9c'][i % 4];
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 3, 1 + Math.random() * 2);
+      }
+    }, 42, 42);
+    const texRoad = makeTex(512, 512, ctx => {
+      ctx.fillStyle = '#262a2c';
+      ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 26000; i++) {
+        ctx.fillStyle = ['#87929637', '#11161a80', '#47505775', '#b3aa9040'][i % 4];
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1 + Math.random() * 2);
+      }
+      for (let i = 0; i < 22; i++) {
+        let x = Math.random() * 512, y = Math.random() * 512;
+        ctx.beginPath(); ctx.moveTo(x, y);
+        for (let j = 0; j < 6; j++) {
+          x += (Math.random() - .5) * 40; y += Math.random() * 18;
+          ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = '#0c101299';
+        ctx.lineWidth = .6 + Math.random() * 1.3;
+        ctx.stroke();
+      }
+      for (const start of [28, 284]) {
+        ctx.fillStyle = '#b8b9a782';
+        ctx.fillRect(252, start, 8, 145);
+        for (let i = 0; i < 330; i++) {
+          ctx.fillStyle = '#3b42425e';
+          ctx.fillRect(252 + Math.random() * 8, start + Math.random() * 144, 1, 2);
+        }
+      }
+    }, 1, 23);
     const texConc = makeTex(256,256, ctx=>{ ctx.fillStyle='#1c1c20'; ctx.fillRect(0,0,256,256); for(let i=0;i<8000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*30)},${~~(Math.random()*30)},${~~(Math.random()*30)},0.25)`; ctx.fillRect(Math.random()*256,Math.random()*256,2,2); }}, 2,6);
     const texWarn = makeTex(512,128, ctx=>{ ctx.fillStyle='#222225'; ctx.fillRect(0,0,512,128); ctx.fillStyle='#9e7308'; for(let i=-512; i<1024; i+=64){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+32,0); ctx.lineTo(i-32,128); ctx.lineTo(i-64,128); ctx.fill(); } });
     const texCliff = makeTex(512,512, ctx=>{ ctx.fillStyle='#0a0d08'; ctx.fillRect(0,0,512,512); for(let i=0;i<35000;i++){ ctx.fillStyle=`rgba(${~~(Math.random()*20)},${~~(Math.random()*20)+2},${~~(Math.random()*20)},0.7)`; ctx.fillRect(Math.random()*512,Math.random()*512,1.5+Math.random()*3,1.5+Math.random()*3); } ctx.strokeStyle='#040503'; for(let i=0;i<40;i++){ ctx.lineWidth=1+Math.random()*4; ctx.beginPath(); let cx=Math.random()*512,cy=Math.random()*512; ctx.moveTo(cx,cy); for(let j=0;j<8;j++){ cx+=(Math.random()-0.5)*70; cy+=(Math.random()-0.5)*70; ctx.lineTo(cx,cy); } ctx.stroke(); }}, 4,2);
@@ -33,7 +75,7 @@ function boot() {
     // 3Dシーン構築
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0e1b29);
-    scene.fog = new THREE.FogExp2(0x142431, 0.031);
+    scene.fog = new THREE.FogExp2(0x15222b, 0.026);
     const camera = new THREE.PerspectiveCamera(78, innerWidth/innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true }); document.body.appendChild(renderer.domElement);
     function resize() {
@@ -45,12 +87,12 @@ function boot() {
     }
     window.addEventListener('resize', resize);
 
-    const ambLight = new THREE.HemisphereLight(0x82a4bf, 0x323e35, 0.75);
+    const ambLight = new THREE.HemisphereLight(0x99afbd, 0x485244, 0.7);
     scene.add(ambLight);
-    const moonlight = new THREE.DirectionalLight(0xa9c9e8, 0.55);
+    const moonlight = new THREE.DirectionalLight(0xa9c9e8, .75);
     moonlight.position.set(45, 54, -120);
     scene.add(moonlight);
-    const flash = new THREE.SpotLight(0xffe7b9, 9, 51, Math.PI / 4.5, 0.72, 1.65); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
+    const flash = new THREE.SpotLight(0xffe9c8, 7, 53, Math.PI / 5.2, .76, 1.7); camera.add(flash); flash.target.position.set(0,0,-5); camera.add(flash.target);
     const lLight = new THREE.PointLight(0xfffae6, 0.15, 5); camera.add(lLight); scene.add(camera);
 
     function setLight(on) {
@@ -106,7 +148,8 @@ function boot() {
     });
 
     // マテリアル定義
-    const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: 0.95}), mRoad = new THREE.MeshStandardMaterial({map: texRoad, roughness: 0.9, metalness: 0});
+    const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: .98});
+    const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .025, roughness: .62});
     const mGrd = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.5, roughness: 0.6}), mRust = new THREE.MeshStandardMaterial({color: 0x5a2d18, roughness: 0.9});
     const mClf = new THREE.MeshStandardMaterial({map: texCliff, roughness: 1}), mCon = new THREE.MeshStandardMaterial({map: texConc, roughness: 0.9, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
@@ -221,26 +264,7 @@ function boot() {
     for(let i=0;i<120;i++){ let x=(Math.random()-0.5)*140, z=(Math.random()-0.5)*120; if(Math.abs(x)<7) x+=x>=0?8:-8; if(z>-48) addTree(x,z); }
     for(let i=0;i<350;i++){ let r=75+Math.random()*120, a=Math.random()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r; if(!(z<-45 && Math.abs(x)<20)) addTree(x,z,1.2,1.0); }
 
-    // Four instanced meshes share the geometry and materials for the whole forest.
-    const treeTrunk = new THREE.MeshStandardMaterial({color:0x110a05, roughness:1});
-    const treeLeaves = new THREE.MeshStandardMaterial({color:0x050d05, roughness:0.9});
-    const treeTransform = new THREE.Object3D();
-    for (const { geometry, material, height } of [
-      { geometry: new THREE.CylinderGeometry(0.3, 0.5, 3.5, 7), material: treeTrunk, height: 1.75 },
-      { geometry: new THREE.ConeGeometry(2.4, 4, 8), material: treeLeaves, height: 4 },
-      { geometry: new THREE.ConeGeometry(1.9, 3.5, 8), material: treeLeaves, height: 5.5 },
-      { geometry: new THREE.ConeGeometry(1.3, 3, 8), material: treeLeaves, height: 7 }
-    ]) {
-      const mesh = new THREE.InstancedMesh(geometry, material, trees.length);
-      trees.forEach(({ x, z, scale, yaw }, index) => {
-        treeTransform.position.set(x, height * scale, z);
-        treeTransform.rotation.y = yaw;
-        treeTransform.scale.setScalar(scale);
-        treeTransform.updateMatrix();
-        mesh.setMatrixAt(index, treeTransform.matrix);
-      });
-      scene.add(mesh);
-    }
+    buildForest(scene, trees);
 
     // アイテムスポーン
     const bats=[], parts=[], bG=new THREE.CylinderGeometry(0.2,0.2,0.5,8), bM=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0x888800}), partG=new THREE.BoxGeometry(0.5,0.2,0.4), partM=new THREE.MeshStandardMaterial({color:0x00ff66,emissive:0x00aa44});
@@ -310,11 +334,12 @@ function boot() {
       unlockView();
       if (activeStep) { activeStep.pause(); activeStep = null; }
       aEnv.pause();
-      aChase.pause();
+      chaseAudio.level(0);
       el('pause-screen').style.display = 'grid';
       el('resume-btn').focus();
     }
     function resume(event) {
+      chaseAudio.unlock();
       paused = false;
       document.body.dataset.mode = 'play';
       lastT = performance.now();
@@ -345,11 +370,12 @@ function boot() {
     });
     el('view-cue').textContent = '画面クリックで視点操作。ロックできない場合はマウスでドラッグ。';
     el('pause-btn').addEventListener('click', pause);
-    const tracks = [aEnv, aChase, aOver, aWalk, aDash, aGrass];
+    const tracks = [aEnv, aOver, aWalk, aDash, aGrass];
     let muted = false;
     el('sound-btn').addEventListener('click', () => {
       muted = !muted;
       tracks.forEach(track => { track.muted = muted; });
+      if (muted) chaseAudio.level(0);
       el('sound-btn').textContent = muted ? '音声 OFF' : '音声 ON';
       el('sound-btn').setAttribute('aria-pressed', String(muted));
     });
@@ -582,7 +608,7 @@ function boot() {
         isClr=true;
         if(activeStep) activeStep.pause();
         aEnv.pause();
-        aChase.pause();
+        chaseAudio.level(0);
         unlockView();
         document.body.dataset.mode = 'clear';
         el('clear-stats').textContent = summary();
@@ -629,18 +655,10 @@ function boot() {
       enemy.position.y = 1.85;
       eDir.copy(moveDir);
 
-      // ⚠️ 追跡BGMの制御
-      if(eSt==='C' && pDist<18){
-        if(aChase.paused) {
-          aChase.currentTime = 0;
-          aChase.play().catch(()=>{});
-        }
-        aChase.volume = Math.pow(Math.max(0, 1 - pDist/18), 1.2) * 0.8;
-      } else {
-        if(!aChase.paused){
-          aChase.pause();
-        }
-      }
+      const chasing = eSt === 'C';
+      const tension = 1 - THREE.MathUtils.clamp(pDist / 36, 0, 1);
+      chaseAudio.level(chasing && !muted ? .43 + tension * .4 : 0);
+      aEnv.volume = THREE.MathUtils.lerp(aEnv.volume, chasing ? .12 : .5, Math.min(1, dt * 5));
 
       if(pDist<1.5){ triggerGameOver("こくにいに捕まった！"); }
       renderer.render(scene, camera);
@@ -651,7 +669,7 @@ function boot() {
       document.body.dataset.mode = 'over';
       if(activeStep) { activeStep.pause(); activeStep = null; }
       aEnv.pause();
-      aChase.pause();
+      chaseAudio.level(0);
 
       // ゲームオーバー時のみひぐらしを再生
       aOver.currentTime = 0;
