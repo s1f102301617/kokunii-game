@@ -609,8 +609,6 @@ function boot() {
               pCnt++;
               terminal.updateScreen(pCnt);
               showPickup(`${item.userData.partName}を回収　${pCnt} / 4`);
-              const pIcons = el('parts-icons').children;
-              for(let j=0; j<4; j++) if(j < pCnt) pIcons[j].classList.add('active');
             }
           }
         }
