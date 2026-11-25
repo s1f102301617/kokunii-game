@@ -133,16 +133,23 @@ function makeForestProps(scene) {
     ctx.strokeRect(17, 18, 350, 215);
     ctx.fillStyle = '#c3e8a6';
     ctx.font = 'bold 28px monospace';
-    ctx.fillText('FIELD TERMINAL', 31, 68);
+    ctx.fillText('STICK INTERFACE', 31, 68);
     ctx.font = '21px monospace';
-    ctx.fillText('MODULES  ' + parts + '/4', 31, 122);
-    ctx.fillText(progress !== null ? 'SYNC ' + progress + '%' : parts >= 4 ? 'LINK READY' : 'STANDBY', 31, 184);
+    ctx.fillText('PARTS    ' + parts + '/4', 31, 122);
+    ctx.fillText(progress !== null ? 'SYNC ' + progress + '%' : parts >= 4 ? 'INPUT READY' : 'STANDBY', 31, 184);
     for (let y = 0; y < screen.height; y += 4) {
       ctx.fillStyle = '#04120c46';
       ctx.fillRect(0, y, screen.width, 1);
     }
     screenTexture.needsUpdate = true;
     green.intensity = parts >= 4 ? 1.4 : .66;
+  }
+  const controls = box(terminal, rubber, [.72,.085,.34], [-.78,1.12,.38]);
+  controls.name = 'Arcade stick test rig';
+  add(terminal, new THREE.CylinderGeometry(.018,.022,.18,10), metal, -.98,1.25,.38);
+  add(terminal, new THREE.SphereGeometry(.043,10,8), standard(0x784731), -.98,1.35,.38);
+  for (const [x,z] of [[-.74,.35],[-.63,.33],[-.53,.32],[-.74,.45],[-.63,.43],[-.53,.42]]) {
+    add(terminal, new THREE.CylinderGeometry(.036,.036,.021,12), armor, x,1.17,z);
   }
   updateScreen(0);
   return { target: terminal.position, updateScreen };
@@ -195,21 +202,33 @@ function buildRecoveryScenery(scene) {
       mesh(prop,new THREE.CylinderGeometry(.153,.153,.13,12),black,0,-.125,0);
       mesh(prop,new THREE.CylinderGeometry(.06,.06,.045,10),steel,0,.25,0);
       box(prop,copper,.19,.13,.022,0,.03,.146);
-    } else if (variant % 2 === 0) {
+    } else if (variant === 0) {
+      box(prop,steel,.36,.052,.36,0,-.10,0);
+      mesh(prop,new THREE.CylinderGeometry(.09,.11,.08,12),black,0,-.04,0);
+      mesh(prop,new THREE.CylinderGeometry(.022,.025,.28,10),steel,0,.14,0);
+      mesh(prop,new THREE.SphereGeometry(.105,13,9),material(0x803c2b,.47),0,.31,0);
+    } else if (variant === 1) {
+      box(prop,black,.50,.12,.31,0,0,0);
+      for(const x of [-.16,0,.16]) {
+        mesh(prop,new THREE.CylinderGeometry(.068,.07,.067,12),bone,x,.084,0);
+        mesh(prop,new THREE.CylinderGeometry(.053,.062,.019,12),material(0x9b6941,.48),x,.12,0);
+      }
+    } else if (variant === 2) {
       box(prop,board,.53,.075,.34,0,0,0);
       box(prop,steel,.23,.074,.22,.04,.074,-.025);
       box(prop,black,.16,.052,.12,-.13,.059,.012);
       for (let i=0;i<7;i++) box(prop,copper,.025,.02,.095,-.21+.065*i,.049,.12);
       box(prop,lamp,.055,.028,.046,.19,.054,-.087);
     } else {
-      box(prop,black,.51,.105,.31,0,0,0);
-      box(prop,bone,.37,.027,.23,0,.058,-.02);
-      for(const x of [-.17,0,.17]) {
-        const fuse=mesh(prop,new THREE.CylinderGeometry(.056,.056,.2,9),steel,x,.103,.025);
-        fuse.rotation.x=Math.PI/2;
-        box(prop,copper,.075,.06,.062,x,.075,.14);
+      for (let index=0;index<3;index++) {
+        const offset = (index-1)*.048;
+        const cable = new THREE.CatmullRomCurve3([
+          [-.25,.03,offset],[-.14,.08,offset],[-.03,.10,.11+offset],[.11,.058,.076+offset],[.24,.03,offset]
+        ].map(point => new THREE.Vector3(...point)));
+        mesh(prop,new THREE.TubeGeometry(cable,12,.015,5,false),index===1 ? copper : black,0,0,0);
       }
-      box(prop,lamp,.05,.028,.047,-.2,.065,-.105);
+      box(prop,bone,.10,.082,.17,-.23,.03,0);
+      box(prop,steel,.11,.067,.15,.23,.03,0);
     }
     return prop;
   }

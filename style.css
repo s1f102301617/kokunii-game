@@ -114,6 +114,21 @@ body[data-threat="true"] .view-effects { background: radial-gradient(ellipse at 
   #dash-btn { bottom: max(12px, env(safe-area-inset-bottom)); }
   #pickup-notice { bottom: max(16px, env(safe-area-inset-bottom)); }
 }
-#terminal-btn { position: fixed; display: none; z-index: 13; left: 50%; top: 61%; transform: translateX(-50%); min-width: 124px; }
-#terminal-btn:disabled { color: var(--light); cursor: default; }
-body:not([data-mode="play"]) #terminal-btn { visibility: hidden; }
+#arcade-screen[hidden] { display: none; }
+#arcade-screen { z-index: 29; place-items: center; background: #060a08f2; overflow: auto; }
+.arcade-panel { width: min(750px, 100%); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: clamp(12px, 4vw, 50px); padding: clamp(14px, 3vw, 32px); border: 1px solid #607161; background: repeating-linear-gradient(0deg,#cad6a009 0 1px,transparent 1px 4px), #101910; }
+.arcade-copy h1 { margin: .2em 0; }
+.arcade-copy h2 { margin: .32em 0; font-size: clamp(1rem, 3vw, 1.55rem); color: var(--light); }
+#arcade-steps { width: auto; height: auto; background: transparent; color: var(--ink); }
+#arcade-sequence { font: bold clamp(1.1rem, 3.5vw, 1.9rem)/1.4 monospace; color: #d3e6a1; }
+#arcade-history, #arcade-status, .arcade-keyboard { margin-top: .44rem; font-size: .77rem; overflow-wrap: anywhere; }
+#arcade-history { color: #c7d1a2; }
+#arcade-status { min-height: 2.2em; color: var(--quiet); }
+.arcade-keyboard { color: #a2ab9b; }
+.arcade-controls { display: flex; align-items: flex-end; justify-content: center; gap: clamp(8px, 2vw, 18px); }
+#arcade-pad { display: grid; grid-template-columns: repeat(3, 46px); gap: 4px; touch-action: none; }
+#arcade-pad button, #arcade-pad span { height: 46px; display: grid; place-items: center; border: 1px solid #748761; background: #252d1e; color: #e6e6ba; font-size: 1.28rem; }
+#arcade-pad button:active { background: #637345; }
+#arcade-punch { width: 65px; height: 65px; border-radius: 50%; color: #ffe6d6; background: #6d2d21; border-color: #b37459; font-size: 1.45rem; font-weight: 800; }
+@media (max-width: 550px) { .arcade-panel { grid-template-columns: 1fr; } }
+@media (pointer: coarse) { .arcade-keyboard { display: none; } }

@@ -212,10 +212,10 @@ function boot() {
     // 🌲 リアル針葉樹
     // Each part has its own searchable area, with a safe fallback off the obstacle line.
     const partZones = [
-      { x: -22, z: 19, name: '廃車の周辺' },
-      { x: 27, z: -7, name: '井戸の周辺' },
-      { x: -18, z: -29, name: 'トンネル手前の左の林' },
-      { x: 19, z: 39, name: '道路南側の林' }
+      { x: -22, z: 19, name: '廃車の周辺', part: 'レバー' },
+      { x: 27, z: -7, name: '井戸の周辺', part: 'ボタン' },
+      { x: -18, z: -29, name: 'トンネル手前の左の林', part: '基板' },
+      { x: 19, z: 39, name: '道路南側の林', part: '配線' }
     ];
     scenery.trailMarker(-4.6, 8, 'A');
     scenery.trailMarker(4.6, -25, 'B');
@@ -249,6 +249,7 @@ function boot() {
       item.position.set(x, arr === bats ? .34 : .26, z);
       scene.add(item);
       item.userData.zone = zone.name;
+      item.userData.partName = zone.part;
       arr.push(item);
     }
     function spawnBattery() {
@@ -268,8 +269,8 @@ function boot() {
     let sprintBlend = 0;
     const pursuit = { state: 'P', timer: 0, x: 0, z: 0 };
     let navigationHelp = false;
-    let terminalProgress = 0;
-    let connecting = false;
+    let arcadeActive = false;
+    const arcade = createArcadeTerminal(finishEscape, () => !needsLandscape());
     const keys = { yaw: 0, pitch: 0 };
     let mTch=null, lTch=null, mSt={x:0,y:0}, lSt={x:0,y:0}, mDir={f:0,s:0};
 
@@ -280,7 +281,7 @@ function boot() {
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let paused = false;
     let sprintExhausted = false;
-    const running = () => isRun && !paused && !isOver && !isClr;
+    const running = () => isRun && !paused && !isOver && !isClr && !arcadeActive;
     const unlockView = () => {
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
     };
@@ -318,7 +319,7 @@ function boot() {
       const rotate = needsLandscape() && !isOver && !isClr;
       if (rotate) pause();
       el('rotate-screen').classList.toggle('visible', rotate);
-      el('rotate-hint').textContent = isRun
+      el('rotate-hint').textContent = arcadeActive ? '横に戻すとコマンド入力を続けられます。' : isRun
         ? '捜索を中断しました。横に戻したら「再開する」を押してください。'
         : '横にすると捜索を始められます。';
       el('start-btn').disabled = rotate;
@@ -373,7 +374,6 @@ function boot() {
       el('hint-btn').setAttribute('aria-pressed', String(navigationHelp));
       el('hint-btn').textContent = navigationHelp ? '方角の案内 ON' : '方角の案内 OFF';
     });
-    el('terminal-btn').addEventListener('click', startTerminal);
     window.addEventListener('blur', pause);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
@@ -415,7 +415,6 @@ function boot() {
     window.addEventListener('keydown', event => {
       if (!running()) return;
       if (event.code === 'Escape') { pause(); return; }
-      if (event.code === 'KeyE' && !event.repeat) startTerminal();
       if (event.code.startsWith('Arrow')) event.preventDefault();
       keys[event.code] = true;
       if (event.code === 'KeyF' && !event.repeat && batt > 0) setLight(!light);
@@ -468,7 +467,7 @@ function boot() {
     }
     function summary() {
       const seconds = Math.floor(elapsed % 60);
-      return `部品 ${pCnt} / 4　捜索時間 ${Math.floor(elapsed / 60)}:${String(seconds).padStart(2, '0')}`;
+      return `アケコン部品 ${pCnt} / 4　捜索時間 ${Math.floor(elapsed / 60)}:${String(seconds).padStart(2, '0')}`;
     }
     function updateMeter(id, value) {
       el(id + '-lv').style.width = value + '%';
@@ -482,48 +481,27 @@ function boot() {
       const direction = Math.round(angle / (Math.PI / 4));
       return directionArrows[((direction % 8) + 8) % 8];
     }
-    const terminalRadius = 2.8;
-    const bootTime = 3.4;
-    function terminalInReach() {
-      return Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < terminalRadius;
+    function enterArcade() {
+      arcadeActive = true;
+      clearInputs();
+      footsteps.play('');
+      aEnv.pause();
+      chaseAudio.level(0);
+      unlockView();
+      document.body.dataset.mode = 'arcade';
+      arcade.start();
     }
-    function startTerminal() {
-      if (!running() || pCnt < 4 || !terminalInReach() || connecting) return;
-      terminalProgress = 0;
-      connecting = true;
-      showPickup('接続音がトンネルに響く');
-    }
-    function updateTerminal(dt) {
-      const ready = pCnt >= 4 && terminalInReach();
-      const button = el('terminal-btn');
-      button.style.display = ready && running() ? 'block' : 'none';
-      if (!ready) {
-        if (connecting) {
-          showPickup('端末との接続が切れた');
-          terminal.updateScreen(pCnt);
-        }
-        connecting = false;
-        terminalProgress = 0;
-        return false;
-      }
-      if (!connecting) {
-        button.disabled = false;
-        button.textContent = touchDevice ? 'PCを起動' : 'E / PCを起動';
-        return false;
-      }
-      terminalProgress += dt;
-      button.disabled = true;
-      const percentage = Math.min(100, Math.floor(100 * terminalProgress / bootTime));
-      const label = '接続中 ' + percentage + '%';
-      if (button.textContent !== label) {
-        button.textContent = label;
-        terminal.updateScreen(pCnt, percentage);
-      }
-      return terminalProgress >= bootTime;
+
+    function finishEscape() {
+      isClr = true;
+      arcadeActive = false;
+      document.body.dataset.mode = 'clear';
+      el('clear-stats').textContent = summary();
+      el('game-clear').style.display = 'grid';
     }
 
     function updateObjective() {
-      const objective = pCnt >= 4 ? 'トンネル奥のPCへ戻る' : `部品を探す ${pCnt} / 4`;
+      const objective = pCnt >= 4 ? 'トンネル奥のPCへ戻る' : `アケコン部品 ${pCnt} / 4`;
       if (el('objective').textContent !== objective) el('objective').textContent = objective;
       let nearest = null;
       let nearestDistance = Infinity;
@@ -624,12 +602,13 @@ function boot() {
         for(let i=arr.length-1; i>=0; i--){
           arr[i].rotation.y+=dt*(idx?3:2);
           if(Math.hypot(camera.position.x - arr[i].position.x, camera.position.z - arr[i].position.z) < 1.5){
-            scene.remove(arr[i]); arr.splice(i,1);
+            const [item] = arr.splice(i, 1);
+            scene.remove(item);
             if(!idx){ batt=100; setLight(true); showPickup('電池を交換した'); }
             else{
               pCnt++;
               terminal.updateScreen(pCnt);
-              showPickup(`部品を回収　${pCnt} / 4`);
+              showPickup(`${item.userData.partName}を回収　${pCnt} / 4`);
               const pIcons = el('parts-icons').children;
               for(let j=0; j<4; j++) if(j < pCnt) pIcons[j].classList.add('active');
             }
@@ -655,17 +634,10 @@ function boot() {
         footsteps.play(walkingOnRoad ? (sprinting ? 'run' : 'walk') : 'grass', !walkingOnRoad && sprinting ? 1.38 : 1);
       }
 
-      // クリア判定
-      if (updateTerminal(frameSeconds)) {
-        isClr=true;
-        footsteps.play('');
-        aEnv.pause();
-        chaseAudio.level(0);
-        unlockView();
-        document.body.dataset.mode = 'clear';
-        el('terminal-btn').style.display = 'none';
-        el('clear-stats').textContent = summary();
-        el('game-clear').style.display = 'grid';
+      if (pCnt >= 4 && Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < 2.7) {
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        frameId = null;
+        enterArcade();
         return;
       }
 
@@ -674,7 +646,7 @@ function boot() {
 
       const currentChaseSpeed = 4.5 + pCnt * 0.52;
       const detectRange = 13 + pCnt * 2 + (light ? 10 : 0);
-      const hearingRange = connecting ? 40 : moved && isMv ? (sprinting ? 21 : 6.5) : 0;
+      const hearingRange = moved && isMv ? (sprinting ? 21 : 6.5) : 0;
       const relevantDistance = Math.max(detectRange, hearingRange, 2);
       const blocked = pDist <= relevantDistance && pathOccluded(
         enemy.position.x, enemy.position.z, camera.position.x, camera.position.z, tunnelBarriers, colls
