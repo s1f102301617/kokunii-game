@@ -130,7 +130,7 @@ body[data-threat="true"] .view-effects { background: radial-gradient(ellipse at 
 @media (pointer: coarse) { .arcade-keyboard { display: none; } }
 
 
-#wreck-action {
+#nearby-action {
   position: fixed;
   z-index: 12;
   left: 50%;

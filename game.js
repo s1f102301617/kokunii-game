@@ -431,7 +431,7 @@ function boot() {
       if (event.code === 'Escape') { pause(); return; }
       if (event.code.startsWith('Arrow')) event.preventDefault();
       keys[event.code] = true;
-      if (event.code === 'KeyE' && !event.repeat) openWreck();
+      if (event.code === 'KeyE' && !event.repeat) useNearbyAction();
       if (event.code === 'KeyF' && !event.repeat && batt > 0) setLight(!light);
     });
     window.addEventListener('keyup', event => { keys[event.code] = false; });
@@ -480,17 +480,66 @@ function boot() {
       notice.style.display = 'block';
       pickupUntil = elapsed + 2.4;
     }
-    const wreckButton = el('wreck-action');
-    if (!touchDevice) wreckButton.textContent = 'E　トランクを開ける';
-    wreckButton.addEventListener('click', openWreck);
+    const actionButton = el('nearby-action');
+    actionButton.addEventListener('click', useNearbyAction);
     let hatchOpenedAt = null;
     let wreckNoise = null;
-    function atWreck() {
-      return Math.hypot(camera.position.x - wreckZone.x, camera.position.z - wreckZone.z) < 1.45;
+    const hatchDuration = .68;
+    function distanceTo(x, z) {
+      return Math.hypot(camera.position.x - x, camera.position.z - z);
+    }
+    function nearbyAction() {
+      const wreckDistance = distanceTo(wreckZone.x, wreckZone.z);
+      if (wreckDistance < 1.45 && hatchOpenedAt === null) {
+        return { label: 'トランクを開ける' };
+      }
+      let closest = null;
+      let closestDistance = 1.5;
+      for (const items of [parts, bats]) {
+        for (const item of items) {
+          const inWreck = item.userData.zone === wreckZone.name;
+          if (inWreck && (hatchOpenedAt === null || elapsed - hatchOpenedAt < hatchDuration || wreckDistance >= 1.45)) continue;
+          const distance = inWreck ? wreckDistance : distanceTo(item.position.x, item.position.z);
+          if (distance >= closestDistance) continue;
+          closestDistance = distance;
+          const name = items === bats ? '電池' : item.userData.partName;
+          closest = { items, item, label: name + 'を拾う' };
+        }
+      }
+      return closest;
+    }
+    function updateNearbyAction() {
+      const action = nearbyAction();
+      actionButton.hidden = !action;
+      if (!action) return;
+      const label = touchDevice ? action.label : 'E　' + action.label;
+      if (actionButton.textContent !== label) actionButton.textContent = label;
+    }
+    function useNearbyAction() {
+      if (!running()) return;
+      const action = nearbyAction();
+      if (!action) return;
+      if (!action.item) {
+        openWreck();
+      } else {
+        const { items, item } = action;
+        items.splice(items.indexOf(item), 1);
+        scene.remove(item);
+        if (items === bats) {
+          batt = 100;
+          setLight(true);
+          showPickup('電池を交換した');
+        } else {
+          pCnt++;
+          terminal.updateScreen(pCnt);
+          showPickup(`${item.userData.partName}を回収　${pCnt} / 4`);
+        }
+      }
+      updateNearbyAction();
     }
     function openWreck() {
-      if (!running() || hatchOpenedAt !== null || !atWreck()) return;
       hatchOpenedAt = elapsed;
+      showPickup('トランクの音が森に響いた');
       if (Math.hypot(enemy.position.x - wreckZone.x, enemy.position.z - wreckZone.z) < 52) {
         wreckNoise = wreckZone;
       }
@@ -650,34 +699,14 @@ function boot() {
         } else { wTxt.style.display='none'; }
       }
 
-      wreckButton.hidden = hatchOpenedAt !== null || !atWreck();
-      const hatchProgress = hatchOpenedAt === null ? 0 : Math.min(1, (elapsed - hatchOpenedAt)/.68);
-      if (hatchOpenedAt !== null) {
-        terminal.hatch.rotation.x = -1.48 * (1 - (1 - hatchProgress)**3);
+      if (hatchOpenedAt !== null && terminal.hatch.rotation.x !== -1.48) {
+        const progress = Math.min(1, (elapsed - hatchOpenedAt) / hatchDuration);
+        terminal.hatch.rotation.x = -1.48 * (1 - (1 - progress)**3);
         const cargo = parts.find(item => item.userData.zone === wreckZone.name);
-        if (cargo) cargo.visible = hatchProgress >= .35;
+        if (cargo) cargo.visible = progress >= .35;
       }
-
-      // アイテム取得
-      [bats, parts].forEach((arr, idx) => {
-        for(let i=arr.length-1; i>=0; i--){
-          arr[i].rotation.y+=dt*(idx?3:2);
-          const inWreck = idx && arr[i].userData.zone === wreckZone.name;
-          const close = inWreck ? hatchProgress >= 1 && atWreck() :
-            Math.hypot(camera.position.x - arr[i].position.x, camera.position.z - arr[i].position.z) < 1.5;
-          if(close){
-            const [item] = arr.splice(i, 1);
-            scene.remove(item);
-            if(!idx){ batt=100; setLight(true); showPickup('電池を交換した'); }
-            else{
-              pCnt++;
-              terminal.updateScreen(pCnt);
-              showPickup(inWreck ? `レバーを回収　${pCnt} / 4 ― 音が森に響いた` :
-                `${item.userData.partName}を回収　${pCnt} / 4`);
-            }
-          }
-        }
-      });
+      for (const battery of bats) battery.rotation.y += dt * 2;
+      for (const part of parts) part.rotation.y += dt * 3;
 
       updateObjective();
 
@@ -689,6 +718,7 @@ function boot() {
       for(let t of colls){ let dx=camera.position.x-t.x, dz=camera.position.z-t.z, d=Math.hypot(dx,dz), minD=t.r+0.3; if(d>0 && d<minD) { camera.position.x+=(dx/d)*(minD-d); camera.position.z+=(dz/d)*(minD-d); } }
       const [safeX, safeZ] = sweepRoadWalls(oX, oZ, camera.position.x, camera.position.z, barriers);
       camera.position.set(Math.max(-129, Math.min(129, safeX)), camera.position.y, Math.max(-85, Math.min(129, safeZ)));
+      updateNearbyAction();
       const moved = Math.hypot(camera.position.x - oX, camera.position.z - oZ) > dt * .4;
       const walkingOnRoad = Math.abs(camera.position.x) <= 5;
       if (muted || !isMv || !moved) {
