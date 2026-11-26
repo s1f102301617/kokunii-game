@@ -128,3 +128,20 @@ body[data-threat="true"] .view-effects { background: radial-gradient(ellipse at 
 #arcade-punch { width: 65px; height: 65px; border-radius: 50%; color: #ffe6d6; background: #6d2d21; border-color: #b37459; font-size: 1.45rem; font-weight: 800; }
 @media (max-width: 550px) { .arcade-panel { grid-template-columns: 1fr; } }
 @media (pointer: coarse) { .arcade-keyboard { display: none; } }
+
+
+#wreck-action {
+  position: fixed;
+  z-index: 12;
+  left: 50%;
+  top: 60%;
+  transform: translateX(-50%);
+  min-height: 44px;
+  padding: .4rem 1rem;
+  border: 0;
+  background: radial-gradient(ellipse, #090b09bb, transparent 74%);
+  color: #e1dac3;
+  text-shadow: 0 1px 3px #000, 0 0 8px #000;
+  font: inherit;
+  cursor: pointer;
+}

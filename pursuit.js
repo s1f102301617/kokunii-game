@@ -28,7 +28,7 @@ function pathOccluded(x, z, tx, tz, walls, trees) {
   return false;
 }
 
-function updatePursuit(memory, {dt, visible, heard, x, z, reached}) {
+function updatePursuit(memory, {dt, visible, heard, impact, x, z, reached}) {
   if (visible) {
     memory.state = 'C';
     memory.timer = 1.7;
@@ -40,6 +40,11 @@ function updatePursuit(memory, {dt, visible, heard, x, z, reached}) {
       memory.state = 'I';
       memory.timer = 5;
     }
+  } else if (impact) {
+    memory.state = 'I';
+    memory.timer = 18;
+    memory.x = impact.x;
+    memory.z = impact.z;
   } else if (heard) {
     memory.state = 'I';
     memory.timer = 5.5;

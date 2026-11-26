@@ -62,6 +62,16 @@ function makeForestProps(scene) {
   body.name = 'Wrecked station wagon';
   loft(wreck, metal, [[-1.14, .88, .87, .98], [-.56, .78, .96, 1.55], [.8, .76, .96, 1.52], [1.55, .86, .8, 1.04]]);
   box(wreck, paint, [1.59, .07, 1.39], [0, 1.56, .11]);
+  const hatch = new THREE.Group();
+  hatch.position.set(0, 1.49, 1.55);
+  wreck.add(hatch);
+  box(hatch, paint, [1.8, .64, .08], [0, -.29, .39]).rotation.x = -.92;
+  box(hatch, glass, [1.39, .32, .04], [0, -.23, .28]).rotation.x = -.92;
+  box(hatch, metal, [.34, .055, .09], [0, -.52, .62]);
+  box(wreck, rubber, [1.65, .03, .79], [0, .92, 1.71]);
+  wreck.updateMatrixWorld(true);
+  const wreckSearch = wreck.localToWorld(new THREE.Vector3(0, 0, 3.25));
+  const wreckCargo = wreck.localToWorld(new THREE.Vector3(0, 1.06, 1.85));
   const windscreen = panel(wreck, glass, [-.85,.98,-1.14], [.85,.98,-1.14], [.75,1.49,-.58], [-.75,1.49,-.58]);
   windscreen.material.side = THREE.DoubleSide;
   line(wreck, [[.29,1.13,-.99],[-.1,1.26,-.86],[-.38,1.36,-.76]], glassCrack);
@@ -152,7 +162,7 @@ function makeForestProps(scene) {
     add(terminal, new THREE.CylinderGeometry(.036,.036,.021,12), armor, x,1.17,z);
   }
   updateScreen(0);
-  return { target: terminal.position, updateScreen };
+  return { target: terminal.position, updateScreen, hatch, wreckSearch, wreckCargo };
 }
 
 function buildRecoveryScenery(scene) {
