@@ -275,7 +275,7 @@ function boot() {
     }
 
     // 敵
-    const enemy = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.TextureLoader().load('kokunii.PNG')})); enemy.scale.set(3.5,3.5,1); scene.add(enemy);
+    const enemy = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.TextureLoader().load('kokunii.PNG')})); enemy.scale.set(3.5,3.5,1); enemy.visible = false; scene.add(enemy);
 
     // 変数定義
     let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
@@ -405,13 +405,12 @@ function boot() {
     function patrolTarget() {
       pTgt.set((Math.random() - 0.5) * 145, 1.85, -40 + Math.random() * 142);
     }
+    if (touchPrimary.matches) el('start-btn').textContent = 'タップしてスタート';
     el('start-btn').onclick = event => {
       if (isRun || needsLandscape()) return;
       isRun = true;
       camera.position.set(0, 1.8, 25);
       setLight(true);
-      enemy.position.set(29, 1.85, -20);
-      patrolTarget();
       spawnBattery();
       for (const zone of partZones) spawnAt(parts, zone);
       el('start-screen').style.display = 'none';
@@ -473,6 +472,7 @@ function boot() {
     const enemyMove = new THREE.Vector3();
     let frameId = null;
     let elapsed = 0;
+    let enemyDelay = 20;
     let pickupUntil = 0;
     function showPickup(message) {
       const notice = el('pickup-notice');
@@ -540,7 +540,7 @@ function boot() {
     function openWreck() {
       hatchOpenedAt = elapsed;
       showPickup('トランクの音が森に響いた');
-      if (Math.hypot(enemy.position.x - wreckZone.x, enemy.position.z - wreckZone.z) < 52) {
+      if (enemy.visible && Math.hypot(enemy.position.x - wreckZone.x, enemy.position.z - wreckZone.z) < 52) {
         wreckNoise = wreckZone;
       }
       const audio = muted ? null : getAudioContext();
@@ -637,6 +637,15 @@ function boot() {
       const dt = Math.min(frameSeconds, 0.05);
       lastT = now;
       elapsed += dt;
+      if (!enemy.visible) {
+        enemyDelay -= frameSeconds;
+        if (enemyDelay <= 0) {
+          const spawnX = camera.position.x > 0 ? -29 : 29;
+          enemy.position.set(spawnX, 1.85, -20);
+          patrolTarget();
+          enemy.visible = true;
+        }
+      }
       if (pickupUntil && elapsed >= pickupUntil) {
         el('pickup-notice').style.display = 'none';
         pickupUntil = 0;
@@ -682,7 +691,7 @@ function boot() {
 
       const wTxt = el('warning-text');
       document.body.dataset.threat = String(eSt === 'C' || batt <= 0);
-      if(batt<=0){
+      if(batt<=0 && enemy.visible){
         noBatt += dt; wTxt.style.display = 'block'; wTxt.textContent = `暗闇　${Math.max(0, 5 - noBatt).toFixed(1)}秒で急襲`;
         if(noBatt>=5){
           enemy.position.copy(camera.position).add(new THREE.Vector3(0,0,-1.2).applyAxisAngle(new THREE.Vector3(0,1,0), keys.yaw));
@@ -728,6 +737,11 @@ function boot() {
         if (frameId !== null) cancelAnimationFrame(frameId);
         frameId = null;
         enterArcade();
+        return;
+      }
+
+      if (!enemy.visible) {
+        renderer.render(scene, camera);
         return;
       }
 

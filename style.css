@@ -20,20 +20,24 @@ button { font: inherit; }
            max(var(--edge), env(safe-area-inset-bottom)) max(var(--edge), env(safe-area-inset-left));
   overflow-y: auto;
 }
+@font-face {
+  font-family: "Yuji Boku";
+  src: url("fonts/yuji-boku-title.woff2") format("woff2");
+  font-display: swap;
+}
 .title-screen {
-  background: linear-gradient(90deg, #080c0bdf, #0a100b85 38%, transparent 82%);
+  place-items: center;
+  text-align: center;
+  background: radial-gradient(ellipse at center, #070b09a0, #050908e0);
 }
-.version { font-family: monospace; }
-.title-content { margin-left: clamp(0px, 5.4vw, 75px); max-width: 490px; }
-.eyebrow { display: flex; gap: .65rem; align-items: center; font-size: .78rem; letter-spacing: .2em; color: var(--light); }
 .title-content h1 {
-  margin: .65rem 0 .2rem;
-  font: 700 clamp(3.45rem, 9vw, 8.1rem)/1.05 "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", serif;
-  letter-spacing: -.07em;
-  text-shadow: 2px 1px #191711, 0 7px 25px #000;
+  margin-bottom: clamp(.65rem, 3vh, 1.65rem);
+  font: 400 clamp(3.45rem, 11vw, 8.1rem)/1.1 "Yuji Boku", "Yu Mincho", serif;
+  color: #dfd9c8;
+  text-shadow: 2px 3px #55251d, 0 8px 20px #000;
 }
-.subtitle { letter-spacing: .17em; color: #acc3be; font-size: clamp(.9rem, 2vw, 1.2rem); }
-.mission { margin: clamp(1rem, 4vh, 2.2rem) 0 1.25rem; color: var(--ink); line-height: 1.85; font-size: .98rem; }
+#start-btn { color: #d0c7b8; letter-spacing: .12em; }
+#start-btn:hover { color: #fff0db; }
 .btn { cursor: pointer; border-radius: 1px; min-height: 44px; border: 1px solid transparent; color: var(--ink); background: none; padding: .58rem .88rem; touch-action: manipulation; }
 .btn:hover { color: var(--light); }
 .btn:focus-visible { outline: 2px solid var(--light); outline-offset: 4px; }
@@ -47,7 +51,6 @@ button { font: inherit; }
   .touch-controls { display: block; }
   .keyboard-controls { display: none; }
 }
-.version { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); right: max(17px, env(safe-area-inset-right)); color: #93a3a6; }
 #start-error { color: var(--danger); margin-bottom: .8rem; }
 .overlay { z-index: 30; display: none; place-items: center; background: #060b11de; }
 .panel { width: min(100%, 415px); padding: clamp(17px, 5vw, 28px); text-shadow: 0 2px 8px #000; }
@@ -93,7 +96,6 @@ body[data-threat="true"] .view-effects { background: radial-gradient(ellipse at 
 }
 @media (max-height: 450px) {
   .title-content h1 { font-size: clamp(2.9rem, 12vh, 5rem); }
-  .mission { margin: .65rem 0 .75rem; line-height: 1.5; }
   .controls { margin-top: .5rem; }
   .panel { padding: 22px; }
 }
