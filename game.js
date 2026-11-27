@@ -690,10 +690,7 @@ function boot() {
         }
       } else {
         noBatt=0;
-        if (eSt === 'C') {
-          wTxt.style.display = 'block';
-          wTxt.textContent = 'こくにいに追われている';
-        } else if (eSt === 'I') {
+        if (eSt === 'I') {
           wTxt.style.display = 'block';
           wTxt.textContent = 'こくにいが周囲を探っている';
         } else { wTxt.style.display='none'; }
