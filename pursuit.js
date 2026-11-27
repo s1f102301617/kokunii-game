@@ -56,3 +56,32 @@ function updatePursuit(memory, {dt, visible, heard, impact, x, z, reached}) {
   }
   return memory.state;
 }
+
+// Expand physical obstacles by the creature's clearance for route selection.
+function pursuitObstacles(walls, objects) {
+  return [...walls.map(wall => ({
+    minX: wall.minX - .46, maxX: wall.maxX + .46,
+    minZ: wall.minZ - .46, maxZ: wall.maxZ + .46
+  })), ...objects.map(({x, z, r}) => ({
+    minX: x-r-.46, maxX: x+r+.46, minZ: z-r-.46, maxZ: z+r+.46
+  }))];
+}
+
+function pursuitDetour(x, z, tx, tz, obstacles) {
+  const blockers = obstacles.filter(wall => pathOccluded(x, z, tx, tz, [wall], []));
+  if (!blockers.length) return null;
+  let best = null, bestCost = Infinity;
+  for (const wall of blockers) {
+    for (const px of [wall.minX-.18, wall.maxX+.18]) {
+      for (const pz of [wall.minZ-.18, wall.maxZ+.18]) {
+        const distance = Math.hypot(px-x,pz-z);
+        if (distance < .4) continue;
+        const cost = distance + Math.hypot(tx-px,tz-pz);
+        if (cost >= bestCost || pathOccluded(x,z,px,pz,obstacles,[])) continue;
+        best = {x:px,z:pz};
+        bestCost = cost;
+      }
+    }
+  }
+  return best;
+}

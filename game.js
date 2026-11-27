@@ -42,7 +42,7 @@ function boot() {
       ctx.fillStyle = '#262a2c';
       ctx.fillRect(0, 0, 512, 512);
       for (let i = 0; i < 26000; i++) {
-        ctx.fillStyle = ['#87929637', '#11161a80', '#47505775', '#b3aa9040'][i % 4];
+        ctx.fillStyle = ['#68717629', '#11161a50', '#47505745', '#77705c21'][i % 4];
         ctx.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1 + Math.random() * 2);
       }
       for (let i = 0; i < 22; i++) {
@@ -179,7 +179,7 @@ function boot() {
 
     // マテリアル定義
     const mGrass = new THREE.MeshStandardMaterial({map: texGrass, roughness: .98});
-    const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .012, roughness: .62});
+    const mRoad = new THREE.MeshStandardMaterial({map: texRoad, bumpMap: texRoad, bumpScale: .004, roughness: .85});
     const mCon = new THREE.MeshStandardMaterial({map: texConc, bumpMap: texConc, bumpScale: .009, roughness: .91, side: THREE.DoubleSide});
     const mFence = new THREE.MeshStandardMaterial({map: texFence, transparent: true, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.4});
 
@@ -216,69 +216,87 @@ function boot() {
     const barriers = buildRoadStructures(scene, mCon, mRoad, new THREE.MeshStandardMaterial({ map: texWarn, roughness: .8 }));
     barriers.push({ minX: -5, maxX: 5, minZ: 64.9, maxZ: 65.1 });
 
-    const tunnelBarriers = barriers.filter(wall => wall.minZ < -49);
+
 
     // 🌲 リアル針葉樹
-    // Each part has its own searchable area, with a safe fallback off the obstacle line.
     const wreckZone = { x: terminal.wreckSearch.x, z: terminal.wreckSearch.z, name: '廃車の後ろ', part: 'レバー' };
     const partZones = [
       wreckZone,
-      { x: 27, z: -7, name: '井戸の周辺', part: 'ボタン' },
-      { x: -18, z: -29, name: 'トンネル手前の左の林', part: '基板' },
-      { x: 19, z: 39, name: '道路南側の林', part: '配線' }
+      { x: 27.6, z: -9.2, name: '井戸', part: 'ボタン', open: '井戸のつるべを引く', reveal: scenery.raiseWellBucket, display: [29.0, 1.28, -9.52] },
+      { x: -14, z: -31, name: 'トンネル手前の作業跡', part: '基板', needsLight: true },
+      { x: 14, z: 40, name: '南側の作業箱', part: '配線', open: '作業箱の留め金を外す', reveal: scenery.openWorkBox }
     ];
-    scenery.trailMarker(-4.6, 8, 'A');
-    scenery.trailMarker(4.6, -25, 'B');
-    scenery.trailMarker(-4.6, -29, 'C');
-    scenery.trailMarker(4.6, 43, 'D');
+    const batteryZones = [
+      { x: 2, z: 45 }, { x: -11, z: 49 }, { x: 11, z: 11 }, { x: -10, z: 9 },
+      { x: -13, z: -25 }, { x: 15, z: -29 }, { x: -2, z: -34 }, { x: 2, z: 13 }
+    ];
+    scenery.trailMarker(-4.55, 17, '← 廃車');
+    scenery.trailMarker(4.6, -10, '井戸 →');
+    scenery.trailMarker(-4.6, -29, '← 作業跡');
+    scenery.trailMarker(4.6, 43, '作業箱 →');
+    scenery.workCache(-14, -31, false);
+    scenery.workCache(14, 40, true);
     const trees = [];
-    function addTree(x, z, scale = 1, radius = 0.7) {
-      if (Math.hypot(x, z) < 6 || partZones.some(zone => Math.hypot(x - zone.x, z - zone.z) < 2)) return;
-      trees.push({ x, z, scale, yaw: Math.random() * Math.PI });
-      colls.push({ x, z, r: radius });
+    let layoutSeed = 413092;
+    function layoutRandom() {
+      layoutSeed = (Math.imul(layoutSeed, 1664525) + 1013904223) >>> 0;
+      return layoutSeed / 4294967296;
     }
-    for(let i=0;i<120;i++){ let x=(Math.random()-0.5)*140, z=(Math.random()-0.5)*120; if(Math.abs(x)<7) x+=x>=0?8:-8; if(z>-48) addTree(x,z); }
-    for(let i=0;i<350;i++){ let r=75+Math.random()*120, a=Math.random()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r; if(!(z<-45 && Math.abs(x)<20)) addTree(x,z,1.2,1.0); }
-
+    const clearings = [...partZones, ...batteryZones, {x: -25, z: 15}, {x: 30, z: -10}, {x: 29, z: -20}, {x: -29, z: -20}];
+    function addTree(x, z, scale = 1, radius = .7) {
+      if (clearings.some(zone => Math.hypot(x - zone.x, z - zone.z) < 3.5)) return;
+      if (x >= -129 && x <= 129 && colls.some(o => Math.hypot(x - o.x, z - o.z) < radius + o.r + .5)) return;
+      trees.push({ x, z, scale, yaw: layoutRandom() * Math.PI });
+      if (z >= -49 && z <= 129 && Math.abs(x) <= 129) colls.push({ x, z, r: radius });
+    }
+    for (let i = 0; i < 120; i++) {
+      let x = (layoutRandom()-.5)*140;
+      const z = (layoutRandom()-.5)*120;
+      if (Math.abs(x) < 8) x += x >= 0 ? 9 : -9;
+      if (z > -48) addTree(x,z);
+    }
+    for (let i = 0; i < 350; i++) {
+      const r = 75 + layoutRandom()*120, angle = layoutRandom()*Math.PI*2;
+      const x = Math.cos(angle)*r, z = Math.sin(angle)*r;
+      if (Math.abs(x) > 7 && !(z < -45 && Math.abs(x) < 20)) addTree(x,z,1.2,1);
+    }
     buildForest(scene, trees);
-
-    // アイテムスポーン
+    const enemyObstacles = pursuitObstacles(barriers, colls);
     const bats = [], parts = [];
-    function spawnAt(arr, zone) {
-      let x = zone.x, z = zone.z;
-      for (let attempt = 0; attempt < 24; attempt++) {
-        const candidateX = zone.x + (Math.random() - 0.5) * 8;
-        const candidateZ = zone.z + (Math.random() - 0.5) * 8;
-        if (colls.every(o => Math.hypot(candidateX - o.x, candidateZ - o.z) > o.r + 0.7)) {
-          x = candidateX;
-          z = candidateZ;
-          break;
-        }
-      }
-      const item = scenery.makeItem(arr === bats ? 'battery' : 'module', arr.length);
-      item.position.set(x, arr === bats ? .34 : .26, z);
-      if (zone === wreckZone) {
-        item.position.copy(terminal.wreckCargo);
-        item.visible = false;
-      }
-      scene.add(item);
+    function spawnAt(items, zone) {
+      const item = scenery.makeItem(items === bats ? 'battery' : 'module', items.length);
+      item.position.set(zone.x, items === bats ? .34 : .26, zone.z);
+      if (zone === wreckZone) item.position.copy(terminal.wreckCargo);
+      if (zone.display) item.position.set(...zone.display);
+      item.visible = !(zone === wreckZone || zone.open || zone.needsLight);
       item.userData.zone = zone.name;
       item.userData.partName = zone.part;
-      arr.push(item);
+      item.userData.site = zone;
+      item.userData.opened = false;
+      scene.add(item);
+      items.push(item);
     }
-    function spawnBattery() {
-      const zones = [
-        { x: 0, z: 46 }, { x: -11, z: 49 }, { x: 11, z: 11 }, { x: -10, z: 9 },
-        { x: -14, z: -25 }, { x: 15, z: -29 }, { x: -2, z: -34 }, { x: 2, z: 13 }
-      ];
-      for (const zone of zones) spawnAt(bats, zone);
-    }
-
     // 敵
-    const enemy = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.TextureLoader().load('kokunii.PNG')})); enemy.scale.set(3.5,3.5,1); enemy.visible = false; scene.add(enemy);
+    const enemy = new THREE.Group();
+    const enemyShape = new THREE.MeshStandardMaterial({color:0x202221, roughness:.88});
+    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(1,16,12), enemyShape);
+    shoulders.scale.set(1.25,.6,.38);
+    shoulders.position.set(0,-.66,-.12);
+    enemy.add(shoulders);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1,16,12), enemyShape);
+    head.scale.set(.60,.83,.43);
+    head.position.set(0,.27,-.16);
+    enemy.add(head);
+    const enemyFace = new THREE.Mesh(new THREE.PlaneGeometry(2.65,2.67), new THREE.MeshBasicMaterial({
+      map: new THREE.TextureLoader().load('kokunii.PNG'), color:0xc4c4bd, alphaTest:.48
+    }));
+    enemyFace.position.z = .34;
+    enemy.add(enemyFace);
+    enemy.visible = false;
+    scene.add(enemy);
 
     // 変数定義
-    let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, noBatt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
+    let isRun=false, isOver=false, isClr=false, light=true, isDash=false, batt=100, stam=100, pCnt=0, eSt='P', pTgt=new THREE.Vector3(), eDir=new THREE.Vector3(0,0,1), lastT=0;
     let headBobTime = 0;
     let sprintBlend = 0;
     const pursuit = { state: 'P', timer: 0, x: 0, z: 0 };
@@ -403,7 +421,11 @@ function boot() {
     }
 
     function patrolTarget() {
-      pTgt.set((Math.random() - 0.5) * 145, 1.85, -40 + Math.random() * 142);
+      for (let attempt = 0; attempt < 24; attempt++) {
+        pTgt.set((Math.random()-.5)*145, 1.85, -40 + Math.random()*142);
+        if (!enemyObstacles.some(wall => pTgt.x > wall.minX && pTgt.x < wall.maxX && pTgt.z > wall.minZ && pTgt.z < wall.maxZ)) return;
+      }
+      pTgt.set(0, 1.85, 3);
     }
     if (touchPrimary.matches) el('start-btn').textContent = 'タップしてスタート';
     el('start-btn').onclick = event => {
@@ -411,7 +433,7 @@ function boot() {
       isRun = true;
       camera.position.set(0, 1.8, 25);
       setLight(true);
-      spawnBattery();
+      for (const zone of batteryZones) spawnAt(bats, zone);
       for (const zone of partZones) spawnAt(parts, zone);
       el('start-screen').style.display = 'none';
       el('ui-top-left').style.display = 'flex';
@@ -473,6 +495,7 @@ function boot() {
     let frameId = null;
     let elapsed = 0;
     let enemyDelay = 20;
+    let detour = null, nextRouteCheck = 0;
     let pickupUntil = 0;
     function showPickup(message) {
       const notice = el('pickup-notice');
@@ -499,11 +522,15 @@ function boot() {
         for (const item of items) {
           const inWreck = item.userData.zone === wreckZone.name;
           if (inWreck && (hatchOpenedAt === null || elapsed - hatchOpenedAt < hatchDuration || wreckDistance >= 1.45)) continue;
-          const distance = inWreck ? wreckDistance : distanceTo(item.position.x, item.position.z);
+          const site = item.userData.site;
+          const distance = inWreck ? wreckDistance : distanceTo(site.x, site.z);
           if (distance >= closestDistance) continue;
           closestDistance = distance;
           const name = items === bats ? '電池' : item.userData.partName;
-          closest = { items, item, label: name + 'を拾う' };
+          const search = site.open || (site.needsLight && !light ? '手探りで基板を探す' : '');
+          closest = search && !item.userData.opened
+            ? { reveal: item, label: search }
+            : { items, item, label: name + 'を拾う' };
         }
       }
       return closest;
@@ -519,7 +546,11 @@ function boot() {
       if (!running()) return;
       const action = nearbyAction();
       if (!action) return;
-      if (!action.item) {
+      if (action.reveal) {
+        action.reveal.userData.opened = true;
+        action.reveal.visible = true;
+        action.reveal.userData.site.reveal?.();
+      } else if (!action.item) {
         openWreck();
       } else {
         const { items, item } = action;
@@ -606,7 +637,7 @@ function boot() {
       let nearest = null;
       let nearestDistance = Infinity;
       for (const part of parts) {
-        const target = part.userData.zone === wreckZone.name ? wreckZone : part.position;
+        const target = part.userData.site;
         const distance = Math.hypot(target.x - camera.position.x, target.z - camera.position.z);
         if (distance < nearestDistance) { nearest = part; nearestDistance = distance; }
       }
@@ -615,10 +646,10 @@ function boot() {
       const exitZ = inTunnel ? terminal.target.z : -51;
       let hint;
       if (nearest) {
-        const target = nearest.userData.zone === wreckZone.name ? wreckZone : nearest.position;
+        const target = nearest.userData.site;
         hint = navigationHelp
           ? `${arrowTo(target.x, target.z)} 近い捜索地点：${nearest.userData.zone}`
-          : nearestDistance < 12 ? nearest.userData.zone + 'を捜索' : '道路脇の標識と目印を探す';
+          : nearestDistance < 12 ? nearest.userData.zone + 'を捜索' : pCnt === 0 ? '道路脇に廃車を示す標識がある' : '道路脇の標識と目印を探す';
       } else if (navigationHelp) {
         hint = `${arrowTo(exitX, exitZ)} ${inTunnel ? 'トンネル奥のPC' : 'トンネル入口'}`;
       } else {
@@ -644,6 +675,8 @@ function boot() {
           enemy.position.set(spawnX, 1.85, -20);
           patrolTarget();
           enemy.visible = true;
+          if (hatchOpenedAt !== null && elapsed - hatchOpenedAt <= 8 &&
+              Math.hypot(spawnX - wreckZone.x, -20 - wreckZone.z) < 74) wreckNoise = wreckZone;
         }
       }
       if (pickupUntil && elapsed >= pickupUntil) {
@@ -677,7 +710,10 @@ function boot() {
       } else { camera.position.y = 1.8; }
 
       // UI更新
-      if(light && batt>0){ batt-=dt*0.2; if(batt<=0){ batt=0; setLight(false); } }
+      if(light && batt>0){ batt-=dt*.54; if(batt<=0){ batt=0; setLight(false); } }
+      const charge = Math.min(1, batt / 20);
+      flash.intensity = THREE.MathUtils.lerp(1.8, 4.5, charge);
+      flash.distance = THREE.MathUtils.lerp(18, 53, charge);
       updateMeter('bat', batt);
       el('bat-lv').classList.toggle('low', batt <= 20);
       if (sprinting) {
@@ -691,19 +727,10 @@ function boot() {
 
       const wTxt = el('warning-text');
       document.body.dataset.threat = String(eSt === 'C' || batt <= 0);
-      if(batt<=0 && enemy.visible){
-        noBatt += dt; wTxt.style.display = 'block'; wTxt.textContent = `暗闇　${Math.max(0, 5 - noBatt).toFixed(1)}秒で急襲`;
-        if(noBatt>=5){
-          enemy.position.copy(camera.position).add(new THREE.Vector3(0,0,-1.2).applyAxisAngle(new THREE.Vector3(0,1,0), keys.yaw));
-          triggerGameOver("暗闇の中で捕まった..."); return;
-        }
-      } else {
-        noBatt=0;
-        if (eSt === 'I') {
-          wTxt.style.display = 'block';
-          wTxt.textContent = 'こくにいが周囲を探っている';
-        } else { wTxt.style.display='none'; }
-      }
+      const warning = batt <= 0 ? '電池切れ　予備電池を探す' :
+        eSt === 'I' ? 'こくにいが周囲を探っている' : '';
+      wTxt.style.display = warning ? 'block' : 'none';
+      if (wTxt.textContent !== warning) wTxt.textContent = warning;
 
       if (hatchOpenedAt !== null && terminal.hatch.rotation.x !== -1.48) {
         const progress = Math.min(1, (elapsed - hatchOpenedAt) / hatchDuration);
@@ -712,7 +739,10 @@ function boot() {
         if (cargo) cargo.visible = progress >= .35;
       }
       for (const battery of bats) battery.rotation.y += dt * 2;
-      for (const part of parts) part.rotation.y += dt * 3;
+      for (const part of parts) {
+        part.rotation.y += dt * 3;
+        if (part.userData.site.needsLight) part.visible = part.userData.opened || (light && distanceTo(part.position.x, part.position.z) < 12);
+      }
 
       updateObjective();
 
@@ -753,7 +783,7 @@ function boot() {
       const hearingRange = moved && isMv ? (sprinting ? 21 : 6.5) : 0;
       const relevantDistance = Math.max(detectRange, hearingRange, 2);
       const blocked = pDist <= relevantDistance && pathOccluded(
-        enemy.position.x, enemy.position.z, camera.position.x, camera.position.z, tunnelBarriers, colls
+        enemy.position.x, enemy.position.z, camera.position.x, camera.position.z, barriers, colls
       );
       const bearing = eDir.angleTo(enemyMove.copy(pVec).normalize());
       const canSee = !blocked && pDist < detectRange && (bearing < Math.PI / 3.2 || pDist < 5.5);
@@ -765,12 +795,21 @@ function boot() {
       });
       wreckNoise = null;
       if (eSt === 'P' && (previousState !== 'P' || enemy.position.distanceTo(pTgt) < 1.5)) patrolTarget();
-      const targetX = eSt === 'P' ? pTgt.x : pursuit.x;
-      const targetZ = eSt === 'P' ? pTgt.z : pursuit.z;
-      const moveDir = enemyMove.set(targetX - enemy.position.x, 0, targetZ - enemy.position.z);
-      if (eSt !== 'P' && (targetZ < -49) !== (enemy.position.z < -49) && Math.abs(enemy.position.x) >= 4) {
-        moveDir.set(-enemy.position.x, 0, -47 - enemy.position.z);
+      let targetX = eSt === 'P' ? pTgt.x : pursuit.x;
+      let targetZ = eSt === 'P' ? pTgt.z : pursuit.z;
+      if ((targetZ < -49) !== (enemy.position.z < -49) && Math.abs(enemy.position.x) >= 4) {
+        targetX = 0;
+        targetZ = enemy.position.z < -49 ? -51 : -47;
       }
+      if (eSt !== previousState || (detour && Math.hypot(detour.x-enemy.position.x, detour.z-enemy.position.z) < .3)) {
+        detour = null;
+        nextRouteCheck = elapsed;
+      }
+      if (!detour && elapsed >= nextRouteCheck) {
+        detour = pursuitDetour(enemy.position.x, enemy.position.z, targetX, targetZ, enemyObstacles);
+        nextRouteCheck = elapsed + .16;
+      }
+      const moveDir = enemyMove.set((detour?.x ?? targetX)-enemy.position.x, 0, (detour?.z ?? targetZ)-enemy.position.z);
       if (moveDir.lengthSq() < .1 && eSt === 'I') {
         eDir.applyAxisAngle(up, dt * 1.8);
       } else {
@@ -779,12 +818,19 @@ function boot() {
       const enemyStep = (eSt === 'C' ? currentChaseSpeed : eSt === 'I' ? 3.15 : 2.1) * dt;
       const [enemyX, enemyZ] = sweepRoadWalls(
         enemy.position.x, enemy.position.z,
-        enemy.position.x + moveDir.x * enemyStep, enemy.position.z + moveDir.z * enemyStep, tunnelBarriers
+        enemy.position.x + moveDir.x * enemyStep, enemy.position.z + moveDir.z * enemyStep, enemyObstacles, 0
       );
+      if (Math.hypot(enemyX-enemy.position.x, enemyZ-enemy.position.z) < enemyStep*.15) {
+        detour = null;
+        if (eSt === 'P') patrolTarget();
+      }
       enemy.position.x = enemyX;
       enemy.position.z = enemyZ;
       enemy.position.y = 1.85;
       if (moveDir.lengthSq() > 0) eDir.copy(moveDir);
+      const facing = Math.atan2(eDir.x,eDir.z);
+      const turnAngle = Math.atan2(Math.sin(facing-enemy.rotation.y), Math.cos(facing-enemy.rotation.y));
+      enemy.rotation.y += turnAngle * Math.min(1, dt*7);
 
       const chasing = eSt === 'C';
       const tension = 1 - THREE.MathUtils.clamp(pDist / 36, 0, 1);

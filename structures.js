@@ -105,25 +105,32 @@ function buildRoadStructures(scene, concrete, asphalt, warning) {
   );
 
   function vaultSegment(radius, inner, from, to, material) {
-    const vertices = [], uv = [];
-    const steps = 24;
+    const vertices = [], uv = [], normals = [];
+    const steps = 32;
     function point(angle, z, r) { return [Math.cos(angle)*r, spring+Math.sin(angle)*r, z]; }
-    function vertex(coord, u, v) { vertices.push(...coord); uv.push(u, v); }
+    function vertex(coord, u, v, front = false) {
+      vertices.push(...coord);
+      uv.push(u, v);
+      const height = coord[1] - spring;
+      const radius = Math.hypot(coord[0],height);
+      normals.push(...(front ? [0,0,1] : [-coord[0]/radius,-height/radius,0]));
+    }
     for (let i=0; i<steps; i++) {
       const a = i*Math.PI/steps, b = (i+1)*Math.PI/steps;
-      const u = i/steps*3, v = (i+1)/steps*3;
+      const u = i/steps*2.1, v = (i+1)/steps*2.1;
       const pa = point(a,from,inner), pb = point(b,from,inner);
       const qa = point(a,to,inner), qb = point(b,to,inner);
-      vertex(pa,u,0); vertex(pb,v,0); vertex(qb,v,(to-from)/8);
-      vertex(pa,u,0); vertex(qb,v,(to-from)/8); vertex(qa,u,(to-from)/8);
+      vertex(pa,u,0); vertex(pb,v,0); vertex(qb,v,(to-from)/5.2);
+      vertex(pa,u,0); vertex(qb,v,(to-from)/5.2); vertex(qa,u,(to-from)/5.2);
       const ra = point(a,to,radius), rb = point(b,to,radius);
-      vertex(qa,u,0); vertex(qb,v,0); vertex(rb,v,1);
-      vertex(qa,u,0); vertex(rb,v,1); vertex(ra,u,1);
+      vertex(qa,u,0,true); vertex(qb,v,0,true); vertex(rb,v,1,true);
+      vertex(qa,u,0,true); vertex(rb,v,1,true); vertex(ra,u,1,true);
     }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
     geom.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2));
-    geom.computeVertexNormals();
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals,3));
+    geom.setIndex(Array.from({length:vertices.length/3}, (_, i) => i%3 === 0 ? i : i%3 === 1 ? i+1 : i-1));
     mesh(geom, material, 0,0,0);
   }
 
@@ -135,6 +142,18 @@ function buildRoadStructures(scene, concrete, asphalt, warning) {
   vaultSegment(halfWidth+.76, halfWidth-.04, mouth-.18, portalFront+.26, trim);
   vaultSegment(halfWidth+.24, halfWidth-.08, portalFront+.24, portalFront+.34, recess);
   for (const side of [-1,1]) {
+    const rock = new THREE.Shape();
+    rock.moveTo(0, 6.2);
+    rock.lineTo(2, 7.65);
+    rock.lineTo(4.8, 7.15);
+    rock.lineTo(8.6, 4.6);
+    rock.lineTo(12.9, 3.55);
+    rock.lineTo(16.8, 1.2);
+    rock.lineTo(0, 1.2);
+    rock.closePath();
+    const shoulder = mesh(new THREE.ExtrudeGeometry(rock,{depth:2,bevelEnabled:false}),
+      mat(0x30332b,1),side*5.74,0,mouth-2.83);
+    shoulder.scale.x = side;
     box(trim, side*(halfWidth+.34), spring/2, portalFront+.13, .76, spring, .58);
     for (let tier=0; tier<6; tier++) {
       const reach = 16.4 - tier * 2.47;

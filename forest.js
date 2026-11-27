@@ -6,27 +6,42 @@ function buildForest(scene, trees) {
     return seed / 4294967296;
   };
   const range = (low, high) => low + (high - low) * random();
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x514235, roughness: 1, vertexColors: true });
+  const bark = document.createElement('canvas');
+  bark.width = 128; bark.height = 256;
+  const barkInk = bark.getContext('2d');
+  barkInk.fillStyle = '#a69885'; barkInk.fillRect(0,0,128,256);
+  for (let i = 0; i < 155; i++) {
+    const x = range(0,128), y = range(-60,256);
+    barkInk.strokeStyle = i%3 ? '#493a2d66' : '#584e3eb0';
+    barkInk.lineWidth = range(.6,2.6);
+    barkInk.beginPath(); barkInk.moveTo(x,y);
+    barkInk.lineTo(x+range(-3,3),y+range(10,42));
+    barkInk.lineTo(x+range(-4,4),y+range(44,75));
+    barkInk.stroke();
+  }
+  const barkTexture = new THREE.CanvasTexture(bark);
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x675a48, map: barkTexture, roughness: 1, vertexColors: true });
   const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x496354, roughness: .98, vertexColors: true, side: THREE.DoubleSide });
   const transform = new THREE.Object3D();
   const vertical = new THREE.Vector3(0, 1, 0);
-  const unitBranch = new THREE.CylinderGeometry(.43, 1, 1, 5, 1, true).toNonIndexed();
+  const unitBranch = new THREE.CylinderGeometry(.62, 1, 1, 7, 1, true).toNonIndexed();
   const variants = Array.from({ length: 10 }, () => []);
   trees.forEach((tree, index) => {
     const distant = Math.abs(tree.x) > 62 || tree.z < -48 || tree.z > 100;
     variants[index % 5 + (distant ? 5 : 0)].push(tree);
   });
 
-  function geometry(positions, colors) {
+  function geometry(positions, colors, uv) {
     const mesh = new THREE.BufferGeometry();
     mesh.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     mesh.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    if (uv) mesh.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     mesh.computeVertexNormals();
     return mesh;
   }
 
   function buildVariant(variant, distant) {
-    const trunk = [], barkColors = [], foliage = [], needleColors = [];
+    const trunk = [], barkColors = [], barkUV = [], foliage = [], needleColors = [];
     const height = range(9, 13);
     const lean = range(-.8, .8);
     const centerAt = y => new THREE.Vector3(lean * (y / height) ** 1.4, y, .18 * Math.sin(y));
@@ -40,7 +55,8 @@ function buildForest(scene, trees) {
       for (let i = 0; i < coords.count; i++) {
         const node = new THREE.Vector3().fromBufferAttribute(coords, i).applyMatrix4(transform.matrix);
         trunk.push(node.x, node.y, node.z);
-        const gray = .57 + .4 * (i % 7) / 6;
+        barkUV.push(unitBranch.attributes.uv.getX(i), unitBranch.attributes.uv.getY(i));
+        const gray = .67 + .25 * (i % 7) / 6;
         barkColors.push(gray, gray, gray);
       }
     }
@@ -74,7 +90,7 @@ function buildForest(scene, trees) {
         if (!distant && level < 4) limb(origin, tip, .065 - level * .01);
         for (let twig = 1; twig <= twigs; twig++) {
           const node = origin.clone().lerp(tip, twig / (twigs + 1));
-          const tipWidth = length * (.3 - twig * .04);
+          const tipWidth = length * (.18 - twig * .022);
           const left = node.clone().addScaledVector(sideways, tipWidth).addScaledVector(forward, length * .28);
           const right = node.clone().addScaledVector(sideways, -tipWidth * range(.65, 1.15)).addScaledVector(forward, length * .27);
           left.y -= range(.1, .42);
@@ -84,11 +100,18 @@ function buildForest(scene, trees) {
           const tone = range(.60, .99);
           needleTriangle(node, left, crown, tone);
           needleTriangle(node, crown, right, tone * .82);
-          if (!distant && twig !== twigs) needleTriangle(left, right, crown, tone * .73);
+          if (!distant) {
+            for (const edge of [left, right]) {
+              const middle = node.clone().lerp(edge,.65);
+              const spray = middle.clone().lerp(crown,.56);
+              spray.y += .15;
+              needleTriangle(middle, edge, spray, tone*.77);
+            }
+          }
         }
       }
     }
-    return [geometry(trunk, barkColors), geometry(foliage, needleColors)];
+    return [geometry(trunk, barkColors, barkUV), geometry(foliage, needleColors)];
   }
 
   for (let variant = 0; variant < variants.length; variant++) {
@@ -130,4 +153,17 @@ function buildForest(scene, trees) {
     grass.setMatrixAt(i, transform.matrix);
   }
   scene.add(grass);
+  const litter = new THREE.InstancedMesh(new THREE.CircleGeometry(.24, 4),
+    new THREE.MeshStandardMaterial({color:0x847057, roughness:1}), 760);
+  const leafColor = new THREE.Color();
+  for (let i=0; i<litter.count; i++) {
+    const side = i%2 ? 1 : -1;
+    transform.position.set(side*range(5.5,32), .009, range(-44,52));
+    transform.rotation.set(-Math.PI/2,0,range(0,Math.PI*2));
+    transform.scale.set(range(.32,1),range(.16,.49),1);
+    transform.updateMatrix();
+    litter.setMatrixAt(i,transform.matrix);
+    litter.setColorAt(i,leafColor.setScalar(range(.40,.96)));
+  }
+  scene.add(litter);
 }

@@ -198,7 +198,7 @@ function buildRecoveryScenery(scene) {
   box(well,steel,.13,1.66,.13,1.12,.83,0);
   box(well,steel,2.35,.11,.11,0,1.63,0);
   box(well,copper,.035,.55,.035,-.31,1.33,.03);
-  mesh(well,new THREE.CylinderGeometry(.21,.16,.29,9,1,true),steel,-.31,.93,.03);
+  const bucket = mesh(well,new THREE.CylinderGeometry(.21,.16,.29,9,1,true),steel,-.31,.56,.03);
   for (let i=0;i<11;i++) {
     const angle = i * 1.7;
     const patch = box(well,moss,.19,.025,.1,Math.cos(angle)*1.41,1.186,Math.sin(angle)*1.41);
@@ -243,21 +243,46 @@ function buildRecoveryScenery(scene) {
     return prop;
   }
 
-  function trailMarker(x,z,code) {
+  let cacheLid;
+  function workCache(x, z, boxed) {
+    const cache = new THREE.Group();
+    cache.position.set(x, 0, z);
+    scene.add(cache);
+    box(cache, boxed ? steel : bone, .92,.16,.64,0,.08,0);
+    for (const side of [-1, 1]) {
+      box(cache, black, .07,.18,.63,side*.42,.17,0);
+    }
+    box(cache, boxed ? copper : black, .18,.06,.045,0,.19,.33);
+    if (boxed) {
+      cacheLid = new THREE.Group();
+      cacheLid.position.set(0,.25,-.32);
+      box(cacheLid, steel, .95,.05,.65,0,0,.32);
+      cache.add(cacheLid);
+    }
+  }
+
+  function trailMarker(x,z,text) {
     const post = new THREE.Group();
     post.position.set(x,0,z);
-    const face=box(post,steel,.54,.27,.06,0,1.11,0);
-    face.rotation.y=x<0?.36:-.36;
-    box(post,black,.083,1.22,.083,0,.61,0);
-    box(post,lamp,.13,.046,.018,-.11,1.14,.037);
+    box(post,steel,1.12,.40,.06,0,1.16,0);
+    box(post,black,.083,1.38,.083,0,.69,0);
     const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 64;
+    canvas.width = 256; canvas.height = 96;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle='#242620'; ctx.fillRect(0,0,128,64);
-    ctx.strokeStyle='#a09570'; ctx.strokeRect(5,5,118,54);
-    ctx.fillStyle='#bfb591'; ctx.font='29px monospace'; ctx.fillText(code,20,43);
-    mesh(face,new THREE.PlaneGeometry(.49,.24),new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(canvas),roughness:.9}),0,0,.031);
+    ctx.fillStyle='#292b24'; ctx.fillRect(0,0,256,96);
+    ctx.strokeStyle='#b9ab8c'; ctx.strokeRect(5,5,246,86);
+    ctx.fillStyle='#e1d4ac'; ctx.font='bold 39px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text,128,63);
+    const material = new THREE.MeshStandardMaterial({
+      map: new THREE.CanvasTexture(canvas), roughness:.86, emissive:0x61553c, emissiveIntensity:.45
+    });
+    for (const side of [-1, 1]) {
+      const face = mesh(post,new THREE.PlaneGeometry(1.08,.37),material,0,1.16,.032*side);
+      face.rotation.y = side < 0 ? Math.PI : 0;
+    }
     scene.add(post);
   }
-  return { makeItem, trailMarker };
+  return { makeItem, trailMarker, workCache, raiseWellBucket: () => { bucket.position.y = 1.05; },
+    openWorkBox: () => { cacheLid.rotation.x = -1.25; } };
 }
