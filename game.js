@@ -215,6 +215,10 @@ function boot() {
 
     const barriers = buildRoadStructures(scene, mCon, mRoad, new THREE.MeshStandardMaterial({ map: texWarn, roughness: .8 }));
     barriers.push({ minX: -5, maxX: 5, minZ: 64.9, maxZ: 65.1 });
+    const gate = buildTerminalGate(scene);
+    barriers.push(gate.wall);
+    const mapSite = { x: 3.35, z: -77.9 };
+    const keySite = { x: -22, z: 17.3 };
 
 
 
@@ -230,10 +234,6 @@ function boot() {
       { x: 2, z: 45 }, { x: -11, z: 49 }, { x: 11, z: 11 }, { x: -10, z: 9 },
       { x: -13, z: -25 }, { x: 15, z: -29 }, { x: -2, z: -34 }, { x: 2, z: 13 }
     ];
-    scenery.trailMarker(-4.55, 17, '← 廃車');
-    scenery.trailMarker(4.6, -10, '井戸 →');
-    scenery.trailMarker(-4.6, -29, '← 作業跡');
-    scenery.trailMarker(4.6, 43, '作業箱 →');
     scenery.workCache(-14, -31, false);
     scenery.workCache(14, 40, true);
     const trees = [];
@@ -242,7 +242,7 @@ function boot() {
       layoutSeed = (Math.imul(layoutSeed, 1664525) + 1013904223) >>> 0;
       return layoutSeed / 4294967296;
     }
-    const clearings = [...partZones, ...batteryZones, {x: -25, z: 15}, {x: 30, z: -10}, {x: 29, z: -20}, {x: -29, z: -20}];
+    const clearings = [...partZones, ...batteryZones, keySite, {x: -25, z: 15}, {x: 30, z: -10}, {x: 29, z: -20}, {x: -29, z: -20}];
     function addTree(x, z, scale = 1, radius = .7) {
       if (clearings.some(zone => Math.hypot(x - zone.x, z - zone.z) < 3.5)) return;
       if (x >= -129 && x <= 129 && colls.some(o => Math.hypot(x - o.x, z - o.z) < radius + o.r + .5)) return;
@@ -261,7 +261,29 @@ function boot() {
       if (Math.abs(x) > 7 && !(z < -45 && Math.abs(x) < 20)) addTree(x,z,1.2,1);
     }
     buildForest(scene, trees);
-    const enemyObstacles = pursuitObstacles(barriers, colls);
+    let enemyObstacles = pursuitObstacles(barriers, colls);
+    const mapCanvas = el('field-map');
+    drawFieldMap(mapCanvas, partZones, keySite);
+    const paperMaterial = new THREE.MeshStandardMaterial({
+      map:new THREE.CanvasTexture(mapCanvas), roughness:.94,
+      emissive:0x52412b, emissiveIntensity:.42
+    });
+    const mapPaper = addM(new THREE.PlaneGeometry(.64,.37),paperMaterial,mapSite.x,.047,mapSite.z,-Math.PI/2);
+    mapPaper.rotation.z = -.23;
+    const keyMetal = new THREE.MeshStandardMaterial({
+      color:0xad9660, metalness:.44, roughness:.57, emissive:0x533b1e, emissiveIntensity:.43
+    });
+    const key = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.076,.02,7,16),keyMetal);
+    const stem = new THREE.Mesh(new THREE.BoxGeometry(.21,.045,.035),keyMetal);
+    stem.position.x = .156;
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(.05,.088,.035),keyMetal);
+    tooth.position.set(.23,-.024,0);
+    key.add(ring,stem,tooth);
+    key.position.set(keySite.x,.067,keySite.z);
+    key.rotation.x = -Math.PI/2;
+    key.rotation.z = .35;
+    scene.add(key);
     const bats = [], parts = [];
     function spawnAt(items, zone) {
       const item = scenery.makeItem(items === bats ? 'battery' : 'module', items.length);
@@ -300,7 +322,9 @@ function boot() {
     let headBobTime = 0;
     let sprintBlend = 0;
     const pursuit = { state: 'P', timer: 0, x: 0, z: 0 };
-    let navigationHelp = false;
+    let hasMap = false, hasKey = false;
+    let gateOpeningAt = null, gateOpen = false;
+    let inventoryOpen = false;
     let arcadeActive = false;
     const arcade = createArcadeTerminal(finishEscape, () => !needsLandscape());
     const keys = { yaw: 0, pitch: 0 };
@@ -333,7 +357,7 @@ function boot() {
       isDash = false;
       sprintExhausted = false;
     }
-    function pause() {
+    function pause(showInventory = false) {
       if (!running()) return;
       paused = true;
       document.body.dataset.mode = 'paused';
@@ -344,8 +368,17 @@ function boot() {
       footsteps.play('');
       aEnv.pause();
       chaseAudio.level(0);
-      el('pause-screen').style.display = 'grid';
-      el('resume-btn').focus();
+      inventoryOpen = showInventory === true;
+      if (inventoryOpen) {
+        el('inventory-count').textContent = `アケコン部品 ${pCnt} / 4`;
+        el('inventory-key').hidden = !hasKey;
+        el('inventory-map').hidden = !hasMap;
+        el('inventory-screen').style.display = 'grid';
+        el('inventory-close').focus();
+      } else {
+        el('pause-screen').style.display = 'grid';
+        el('resume-btn').focus();
+      }
     }
     function updateOrientation() {
       const rotate = needsLandscape() && !isOver && !isClr;
@@ -362,6 +395,8 @@ function boot() {
       chaseAudio.unlock();
       footsteps.unlock();
       paused = false;
+      inventoryOpen = false;
+      el('inventory-screen').style.display = 'none';
       document.body.dataset.mode = 'play';
       lastT = performance.now();
       el('pause-screen').style.display = 'none';
@@ -401,12 +436,13 @@ function boot() {
       el('sound-btn').setAttribute('aria-pressed', String(muted));
     });
     el('resume-btn').addEventListener('click', resume);
-    el('hint-btn').addEventListener('click', () => {
-      navigationHelp = !navigationHelp;
-      el('hint-btn').setAttribute('aria-pressed', String(navigationHelp));
-      el('hint-btn').textContent = navigationHelp ? '方角の案内 ON' : '方角の案内 OFF';
+    el('inventory-btn').addEventListener('click', () => pause(true));
+    el('inventory-close').addEventListener('click', resume);
+    el('inventory-map').addEventListener('click', event => {
+      mapCanvas.hidden = !mapCanvas.hidden;
+      event.currentTarget.setAttribute('aria-expanded', String(!mapCanvas.hidden));
+      event.currentTarget.textContent = mapCanvas.hidden ? '手描きの地図を広げる' : '手描きの地図をたたむ';
     });
-    window.addEventListener('blur', pause);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
     el('light-btn').addEventListener('click', () => { if (running() && batt > 0) setLight(!light); });
@@ -438,6 +474,7 @@ function boot() {
       el('start-screen').style.display = 'none';
       el('ui-top-left').style.display = 'flex';
       el('pause-btn').style.display = 'block';
+      el('inventory-btn').hidden = false;
       if (touchDevice) {
         el('light-btn').style.display = 'block';
         dashButton.style.display = 'block';
@@ -448,7 +485,12 @@ function boot() {
     };
 
     window.addEventListener('keydown', event => {
+      if (inventoryOpen && (event.code === 'KeyI' || event.code === 'Escape') && !event.repeat) {
+        resume(event);
+        return;
+      }
       if (!running()) return;
+      if (event.code === 'KeyI' && !event.repeat) { pause(true); return; }
       if (event.code === 'Escape') { pause(); return; }
       if (event.code.startsWith('Arrow')) event.preventDefault();
       keys[event.code] = true;
@@ -512,6 +554,11 @@ function boot() {
       return Math.hypot(camera.position.x - x, camera.position.z - z);
     }
     function nearbyAction() {
+      if (!hasMap && distanceTo(mapSite.x,mapSite.z) < 1.4) return { kind:'map', label:'手描きの地図を拾う' };
+      if (!hasKey && distanceTo(keySite.x,keySite.z) < 1.2) return { kind:'key', label:'鉄格子の鍵を拾う' };
+      if (gateOpeningAt === null && camera.position.z > gate.z && distanceTo(gate.x,gate.z) < 1.6) {
+        return { kind:'gate', label:hasKey ? '鍵で鉄格子を開ける' : '鉄格子を調べる' };
+      }
       const wreckDistance = distanceTo(wreckZone.x, wreckZone.z);
       if (wreckDistance < 1.45 && hatchOpenedAt === null) {
         return { label: 'トランクを開ける' };
@@ -546,7 +593,22 @@ function boot() {
       if (!running()) return;
       const action = nearbyAction();
       if (!action) return;
-      if (action.reveal) {
+      if (action.kind === 'map') {
+        hasMap = true;
+        scene.remove(mapPaper);
+        showPickup(touchDevice ? '地図を拾った。「持ち物」で確認できる' : '地図を拾った。Iキーで「持ち物」を開く');
+      } else if (action.kind === 'key') {
+        hasKey = true;
+        scene.remove(key);
+        showPickup('鉄格子の鍵を拾った');
+      } else if (action.kind === 'gate') {
+        if (hasKey) {
+          gateOpeningAt = elapsed;
+          showPickup('鉄格子の鍵を開けた');
+        } else {
+          showPickup('錠が掛かっている');
+        }
+      } else if (action.reveal) {
         action.reveal.userData.opened = true;
         action.reveal.visible = true;
         action.reveal.userData.site.reveal?.();
@@ -606,12 +668,6 @@ function boot() {
       const label = Math.ceil(value) + '%';
       if (readout.textContent !== label) readout.textContent = label;
     }
-    const directionArrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
-    function arrowTo(x, z) {
-      const angle = Math.atan2(x - camera.position.x, camera.position.z - z) + keys.yaw;
-      const direction = Math.round(angle / (Math.PI / 4));
-      return directionArrows[((direction % 8) + 8) % 8];
-    }
     function enterArcade() {
       arcadeActive = true;
       clearInputs();
@@ -632,30 +688,8 @@ function boot() {
     }
 
     function updateObjective() {
-      const objective = pCnt >= 4 ? 'トンネル奥のPCへ戻る' : `アケコン部品 ${pCnt} / 4`;
+      const objective = `アケコン部品 ${pCnt} / 4`;
       if (el('objective').textContent !== objective) el('objective').textContent = objective;
-      let nearest = null;
-      let nearestDistance = Infinity;
-      for (const part of parts) {
-        const target = part.userData.site;
-        const distance = Math.hypot(target.x - camera.position.x, target.z - camera.position.z);
-        if (distance < nearestDistance) { nearest = part; nearestDistance = distance; }
-      }
-      const inTunnel = camera.position.z < -49;
-      const exitX = inTunnel ? terminal.target.x : 0;
-      const exitZ = inTunnel ? terminal.target.z : -51;
-      let hint;
-      if (nearest) {
-        const target = nearest.userData.site;
-        hint = navigationHelp
-          ? `${arrowTo(target.x, target.z)} 近い捜索地点：${nearest.userData.zone}`
-          : nearestDistance < 12 ? nearest.userData.zone + 'を捜索' : pCnt === 0 ? '道路脇に廃車を示す標識がある' : '道路脇の標識と目印を探す';
-      } else if (navigationHelp) {
-        hint = `${arrowTo(exitX, exitZ)} ${inTunnel ? 'トンネル奥のPC' : 'トンネル入口'}`;
-      } else {
-        hint = inTunnel ? '非常灯の先にPCがある' : '道路の先のトンネルへ';
-      }
-      if (el('hud-hint').textContent !== hint) el('hud-hint').textContent = hint;
     }
 
     // 描画ループ
@@ -745,6 +779,17 @@ function boot() {
       }
 
       updateObjective();
+      if (gateOpeningAt !== null && !gateOpen) {
+        const progress = Math.min(1, (elapsed-gateOpeningAt)/.8);
+        gate.setOpening(progress);
+        if (progress === 1) {
+          gateOpen = true;
+          barriers.splice(barriers.indexOf(gate.wall),1);
+          enemyObstacles = pursuitObstacles(barriers, colls);
+          detour = null;
+          nextRouteCheck = elapsed;
+        }
+      }
 
       camera.rotation.set(keys.pitch, keys.yaw, 0, 'YXZ');
       const oX = camera.position.x, oZ = camera.position.z;
@@ -763,7 +808,7 @@ function boot() {
         footsteps.play(walkingOnRoad ? (sprinting ? 'run' : 'walk') : 'grass', !walkingOnRoad && sprinting ? 1.38 : 1);
       }
 
-      if (pCnt >= 4 && Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < 2.7) {
+      if (gateOpen && pCnt >= 4 && Math.hypot(camera.position.x - terminal.target.x, camera.position.z - terminal.target.z) < 2.7) {
         if (frameId !== null) cancelAnimationFrame(frameId);
         frameId = null;
         enterArcade();

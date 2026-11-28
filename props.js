@@ -261,28 +261,6 @@ function buildRecoveryScenery(scene) {
     }
   }
 
-  function trailMarker(x,z,text) {
-    const post = new THREE.Group();
-    post.position.set(x,0,z);
-    box(post,steel,1.12,.40,.06,0,1.16,0);
-    box(post,black,.083,1.38,.083,0,.69,0);
-    const canvas = document.createElement('canvas');
-    canvas.width = 256; canvas.height = 96;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle='#292b24'; ctx.fillRect(0,0,256,96);
-    ctx.strokeStyle='#b9ab8c'; ctx.strokeRect(5,5,246,86);
-    ctx.fillStyle='#e1d4ac'; ctx.font='bold 39px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(text,128,63);
-    const material = new THREE.MeshStandardMaterial({
-      map: new THREE.CanvasTexture(canvas), roughness:.86, emissive:0x61553c, emissiveIntensity:.45
-    });
-    for (const side of [-1, 1]) {
-      const face = mesh(post,new THREE.PlaneGeometry(1.08,.37),material,0,1.16,.032*side);
-      face.rotation.y = side < 0 ? Math.PI : 0;
-    }
-    scene.add(post);
-  }
-  return { makeItem, trailMarker, workCache, raiseWellBucket: () => { bucket.position.y = 1.05; },
+  return { makeItem, workCache, raiseWellBucket: () => { bucket.position.y = 1.05; },
     openWorkBox: () => { cacheLid.rotation.x = -1.25; } };
 }

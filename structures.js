@@ -219,3 +219,41 @@ function sweepRoadWalls(x, z, destX, destZ, obstacles, radius = .35) {
   }
   return [destX, destZ];
 }
+
+function buildTerminalGate(scene) {
+  const z = -79.6;
+  const gate = new THREE.Group();
+  gate.position.z = z;
+  scene.add(gate);
+  const steel = new THREE.MeshStandardMaterial({color:0x444740, roughness:.83, metalness:.37});
+  const rust = new THREE.MeshStandardMaterial({color:0x5f4734, roughness:.85});
+  function bar(parent, material, x,y,w,h,d) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), material);
+    mesh.position.set(x,y,0);
+    parent.add(mesh);
+  }
+  const leaves = [-1,1].map(side => {
+    const leaf = new THREE.Group();
+    leaf.position.x = side*4.94;
+    for (let i=0; i<=12; i++) bar(leaf,steel,-side*i*.4,1.68,.075,3.36,.075);
+    for (const y of [.14,1.24,3.28]) bar(leaf,steel,-side*2.44,y,4.9,.11,.13);
+    bar(leaf,rust,-side*4.8,1.24,.24,.25,.22);
+    gate.add(leaf);
+    return leaf;
+  });
+  const lock = new THREE.Group();
+  lock.position.set(0,1.13,.16);
+  const shackle = new THREE.Mesh(new THREE.TorusGeometry(.105,.023,8,16),steel);
+  shackle.position.y = .10;
+  lock.add(shackle);
+  bar(lock,rust,0,0,.25,.20,.12);
+  gate.add(lock);
+  return {
+    wall: {minX:-5.2,maxX:5.2,minZ:z-.12,maxZ:z+.12},
+    x:0, z,
+    setOpening(progress) {
+      lock.visible = progress === 0;
+      leaves.forEach((leaf,i) => {leaf.rotation.y = (i ? -1 : 1)*progress*Math.PI/2;});
+    }
+  };
+}
